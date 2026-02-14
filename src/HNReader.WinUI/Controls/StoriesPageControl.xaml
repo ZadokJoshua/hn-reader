@@ -15,14 +15,14 @@
     <UserControl.Resources>
         <!-- Brand Colors -->
         <SolidColorBrush x:Key="HNAccentBrush" Color="#FF6600" />
-        
+
         <!-- Common Styles -->
         <Style x:Key="CardBorderStyle" TargetType="Border">
             <Setter Property="Background" Value="{ThemeResource CardBackgroundFillColorDefaultBrush}" />
             <Setter Property="CornerRadius" Value="12" />
             <Setter Property="Padding" Value="20" />
         </Style>
-        
+
         <Style x:Key="CommentCardBorderStyle" TargetType="Border">
             <Setter Property="Padding" Value="12" />
             <Setter Property="Margin" Value="0,4" />
@@ -31,26 +31,26 @@
             <Setter Property="BorderBrush" Value="{ThemeResource DividerStrokeColorDefaultBrush}" />
             <Setter Property="BorderThickness" Value="1" />
         </Style>
-        
+
         <Style x:Key="CollapseButtonStyle" TargetType="Button">
             <Setter Property="Background" Value="Transparent" />
             <Setter Property="BorderThickness" Value="0" />
             <Setter Property="Padding" Value="8,4" />
             <Setter Property="CornerRadius" Value="4" />
         </Style>
-        
+
         <Style x:Key="ActionButtonStyle" TargetType="Button">
             <Setter Property="Padding" Value="12,8" />
             <Setter Property="MinWidth" Value="0" />
             <Setter Property="CornerRadius" Value="6" />
         </Style>
-        
+
         <Style x:Key="MetaTextStyle" TargetType="TextBlock">
             <Setter Property="FontSize" Value="12" />
             <Setter Property="Foreground" Value="{ThemeResource TextFillColorSecondaryBrush}" />
             <Setter Property="VerticalAlignment" Value="Center" />
         </Style>
-        
+
         <Style x:Key="MetaIconStyle" TargetType="FontIcon">
             <Setter Property="FontSize" Value="12" />
             <Setter Property="Foreground" Value="{ThemeResource TextFillColorSecondaryBrush}" />
@@ -63,7 +63,7 @@
                     <ColumnDefinition Width="16" />
                     <ColumnDefinition Width="*" />
                 </Grid.ColumnDefinitions>
-                
+
                 <!-- Thread line -->
                 <Border 
                     Grid.Column="0"
@@ -111,8 +111,8 @@
                                         Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
                                 </Button>
                             </Grid>
-                            
-                            
+
+
                             <!-- Comment Text -->
                             <toolkit:MarkdownTextBlock 
                                 TextWrapping="Wrap"
@@ -240,7 +240,7 @@
                                     </TransitionCollection>
                                 </Button.Transitions>
                             </Button>
-                            
+
                             <!-- Loading State -->
                             <Border 
                                 Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
@@ -369,7 +369,7 @@
                     <RowDefinition Height="Auto" />
                     <RowDefinition Height="*" />
                 </Grid.RowDefinitions>
-                
+
                 <!-- Story Header Card (Fixed) -->
                 <Border Grid.Row="0" Style="{StaticResource CardBorderStyle}" Margin="24,20,24,0">
                     <StackPanel Spacing="16">
@@ -390,7 +390,7 @@
                                     <StackPanel Orientation="Horizontal" Spacing="12" />
                                 </ItemsPanelTemplate>
                             </ItemsControl.ItemsPanel>
-                            
+
                             <!-- Score Badge -->
                             <Border Background="{StaticResource HNAccentBrush}" CornerRadius="4" Padding="8,4">
                                 <StackPanel Orientation="Horizontal" Spacing="4">
@@ -482,67 +482,67 @@
                             <ColumnDefinition Width="*" />
                             <ColumnDefinition Width="Auto" />
                         </Grid.ColumnDefinitions>
-                        
+
                         <!-- Action Buttons -->
                         <ScrollViewer HorizontalScrollBarVisibility="Auto"
                                       VerticalScrollBarVisibility="Disabled"
                                       HorizontalAlignment="Stretch">
-                            <StackPanel Orientation="Horizontal" Spacing="8">
-                            <Button 
+                            <StackPanel Orientation="Horizontal" Spacing="8" Margin="10">
+                                <Button 
                                 Command="{Binding ToggleFavoriteCommand}" 
                                 Style="{StaticResource ActionButtonStyle}"
                                 ToolTipService.ToolTip="Add to favorites">
-                                <StackPanel Orientation="Horizontal" Spacing="6">
-                                    <FontIcon Glyph="{Binding FavoriteButtonGlyph}" FontSize="14" />
-                                    <TextBlock Text="{Binding FavoriteButtonText}" FontSize="12" />
-                                </StackPanel>
-                            </Button>
-                            <Button 
+                                    <StackPanel Orientation="Horizontal" Spacing="6">
+                                        <FontIcon Glyph="{Binding FavoriteButtonGlyph}" FontSize="14" />
+                                        <TextBlock Text="{Binding FavoriteButtonText}" FontSize="12" />
+                                    </StackPanel>
+                                </Button>
+                                <Button 
                                 Click="OnCopyLinkClicked" 
                                 Style="{StaticResource ActionButtonStyle}"
                                 ToolTipService.ToolTip="Copy link to clipboard">
-                                <StackPanel Orientation="Horizontal" Spacing="6">
-                                    <FontIcon Glyph="&#xE71B;" FontSize="14" />
-                                    <TextBlock Text="Copy Link" FontSize="12" />
-                                </StackPanel>
-                            </Button>
-                            <Button 
+                                    <StackPanel Orientation="Horizontal" Spacing="6">
+                                        <FontIcon Glyph="&#xE71B;" FontSize="14" />
+                                        <TextBlock Text="Copy Link" FontSize="12" />
+                                    </StackPanel>
+                                </Button>
+                                <Button 
                                 Click="OnCopyTitleClicked" 
                                 Style="{StaticResource ActionButtonStyle}"
                                 ToolTipService.ToolTip="Copy title to clipboard">
-                                <StackPanel Orientation="Horizontal" Spacing="6">
-                                    <FontIcon Glyph="&#xE8C8;" FontSize="14" />
-                                    <TextBlock Text="Copy Title" FontSize="12" />
-                                </StackPanel>
-                            </Button>
-                            <Button 
+                                    <StackPanel Orientation="Horizontal" Spacing="6">
+                                        <FontIcon Glyph="&#xE8C8;" FontSize="14" />
+                                        <TextBlock Text="Copy Title" FontSize="12" />
+                                    </StackPanel>
+                                </Button>
+                                <Button 
                                 Click="OnShareClicked" 
                                 Style="{StaticResource ActionButtonStyle}"
                                 ToolTipService.ToolTip="Share this story">
-                                <StackPanel Orientation="Horizontal" Spacing="6">
-                                    <FontIcon Glyph="&#xE72D;" FontSize="14" />
-                                    <TextBlock Text="Share" FontSize="12" />
-                                </StackPanel>
-                            </Button>
-                            <Button 
+                                    <StackPanel Orientation="Horizontal" Spacing="6">
+                                        <FontIcon Glyph="&#xE72D;" FontSize="14" />
+                                        <TextBlock Text="Share" FontSize="12" />
+                                    </StackPanel>
+                                </Button>
+                                <Button 
                                 Click="OnViewOnHnClicked" 
                                 Style="{StaticResource ActionButtonStyle}"
                                 ToolTipService.ToolTip="View on Hacker News">
-                                <StackPanel Orientation="Horizontal" Spacing="6">
-                                    <FontIcon Glyph="&#xE774;" FontSize="14" />
-                                    <TextBlock Text="View on HN" FontSize="12" />
-                                </StackPanel>
-                            </Button>
-                            <Button 
+                                    <StackPanel Orientation="Horizontal" Spacing="6">
+                                        <FontIcon Glyph="&#xE774;" FontSize="14" />
+                                        <TextBlock Text="View on HN" FontSize="12" />
+                                    </StackPanel>
+                                </Button>
+                                <Button 
                                 x:Name="AiInsightsButton"
                                 Click="OnToggleInsightsPanelClicked" 
                                 Style="{StaticResource ActionButtonStyle}"
                                 ToolTipService.ToolTip="Get AI insights about this story">
-                                <StackPanel Orientation="Horizontal" Spacing="6">
-                                    <FontIcon Glyph="&#xE946;" FontSize="14" />
-                                    <TextBlock x:Name="AiInsightsButtonText" Text="AI Insights" FontSize="12" />
-                                </StackPanel>
-                            </Button>
+                                    <StackPanel Orientation="Horizontal" Spacing="6">
+                                        <FontIcon Glyph="&#xE946;" FontSize="14" />
+                                        <TextBlock x:Name="AiInsightsButtonText" Text="AI Insights" FontSize="12" />
+                                    </StackPanel>
+                                </Button>
                             </StackPanel>
                         </ScrollViewer>
 
@@ -570,7 +570,7 @@
                             <RowDefinition Height="Auto" />
                             <RowDefinition Height="*" />
                         </Grid.RowDefinitions>
-                        
+
                         <!-- Comments Header -->
                         <Grid Grid.Row="0" Padding="20,20,20,20">
                             <Grid.ColumnDefinitions>
@@ -590,7 +590,7 @@
                                 Command="{Binding ToggleCommentsCommand}"
                                 Style="{StaticResource AccentButtonStyle}" />
                         </Grid>
-                        
+
                         <!-- Separator line when comments are visible -->
                         <Border 
                             Grid.Row="1" 
@@ -598,7 +598,7 @@
                             Background="{ThemeResource DividerStrokeColorDefaultBrush}"
                             Margin="20,0"
                             Visibility="{Binding AreCommentsVisible, Converter={StaticResource BoolToVisibilityConverter}}" />
-                        
+
                         <!-- Scrollable Comments List (fills remaining space) -->
                         <ScrollViewer 
                             Grid.Row="2" 
@@ -676,7 +676,7 @@
                         <ColumnDefinition Width="*" />
                         <ColumnDefinition Width="Auto" />
                     </Grid.ColumnDefinitions>
-                    
+
                     <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="10">
                         <Border Background="{StaticResource HNAccentBrush}" CornerRadius="6" Padding="8,6">
                             <FontIcon Glyph="&#xE946;" FontSize="16" Foreground="White" />
@@ -686,7 +686,7 @@
                             <TextBlock Text="Story analysis" FontSize="11" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
                         </StackPanel>
                     </StackPanel>
-                    
+
                     <Button 
                         Grid.Column="2"
                         Click="OnToggleInsightsPanelClicked"
