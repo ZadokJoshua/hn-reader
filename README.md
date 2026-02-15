@@ -1,24 +1,25 @@
 # HN Reader
 
-A modern Hacker News reader for Windows, powered by **GitHub Copilot SDK** for AI-generated insights and personalized news digests.
-
 ![License](https://img.shields.io/badge/license-MIT-blue.svg)
 ![Platform](https://img.shields.io/badge/platform-Windows-0078D4)
 ![.NET](https://img.shields.io/badge/.NET-8.0-512BD4)
 ![WinUI](https://img.shields.io/badge/WinUI-3-blue)
 
-<!-- ![App Screenshot](./docs/screenshots/app-main.png) -->
-*Screenshot placeholder: Main application view showing story list, detail view, and AI insights panel*
+A modern Hacker News reader for Windows, powered by **GitHub Copilot CLI** for AI-generated insights and personalized news digests.
+
+
+<figure>
+  <img src="https://raw.githubusercontent.com/ZadokJoshua/hn-reader/refs/heads/main/assets/news-digest-overview.png"
+       alt="News Digest Overview">
+</figure>
 
 ## Features
 
-- **Browse Hacker News** — View Top, New, Best, Ask HN, and Show HN stories with real-time updates
 - **AI-Powered Insights** — Generate structured analysis of stories and discussions using GitHub Copilot
 - **Personalized News Digest** — AI-curated daily digest based on your configured interests
-- **Comment Threading** — Web-scraped comments with collapsible thread navigation
+- **Browse Hacker News** — View Top, New, Best, Ask HN, and Show HN stories
 - **Favorites** — Save stories for later reading
 - **Modern UI** — WinUI 3 design with light/dark theme support
-- **Knowledge Vault** — Local storage of story markdown files for AI agent access
 
 ## Architecture
 
@@ -65,44 +66,6 @@ flowchart TB
     style CopilotSDK fill:#6366f1,color:#fff
     style CopilotService fill:#6366f1,color:#fff
 ```
-
-*Architecture diagram placeholder: Create a visual diagram based on the Mermaid flowchart above*
-
-<!-- ![Architecture Diagram](./docs/diagrams/architecture.png) -->
-
-## GitHub Copilot SDK Integration
-
-HN Reader leverages the **GitHub Copilot SDK** to provide intelligent AI features:
-
-### How It Works
-
-1. **Story Markdown Generation** — When you request insights, the app scrapes the article content and comments, then saves them as a structured markdown file in your Knowledge Vault.
-
-2. **AI Agent Sessions** — The app creates ephemeral Copilot sessions with:
-   - Sandboxed file access (read/write only within the vault folder)
-   - Non-streaming completion for story insights
-   - Streaming progress for news digest generation
-   - Permission-controlled file operations
-
-3. **News Digest Pipeline** — The digest agent:
-   - Reads unprocessed story data from the vault
-   - Applies your configured interests to group and rank stories
-   - Generates a personalized JSON digest with trending scores
-
-### Benefits
-
-- **Privacy-First** — AI agents only access files in your designated vault folder
-- **Offline Context** — Story content is cached locally for analysis
-- **Customizable** — Configure your interests and preferred AI model
-- **Transparent** — Progress updates show exactly what the AI is doing
-
-### Supported Models
-
-| Model | Provider |
-|-------|----------|
-| Claude Sonnet 4.5 | Anthropic (default) |
-| Claude Opus 4.5 | Anthropic |
-| GPT-5.2 | OpenAI |
 
 ## Getting Started
 
@@ -160,59 +123,17 @@ The Knowledge Vault is a local folder where HN Reader stores:
 
 [Learn more about Copilot CLI modes](https://docs.github.com/en/copilot/concepts/agents/about-copilot-cli#modes-of-use)
 
-### User Interests
-
-Add up to 5 interests to personalize your news digest:
-
-| Interest | Description Example |
-|----------|---------------------|
-| AI/ML | Machine learning, neural networks, LLMs |
-| Startups | Funding, acquisitions, founder stories |
-| WebDev | Frontend, React, CSS, performance |
-
-## Screenshots
-
-<!-- 
-Add screenshots here:
-- Main view with story list
-- Story detail with comments
-- AI Insights panel
-- News Digest view
-- Settings page
--->
-
-| Main View | AI Insights | Settings |
-|-----------|-------------|----------|
-| *placeholder* | *placeholder* | *placeholder* |
-
 ## Project Structure
 
 ```
-HNReaderApp/
-├── src/
-│   ├── HNReader.Core/           # Core business logic
-│   │   ├── Models/              # Data models
-│   │   ├── Services/            # API clients, AI orchestration
-│   │   ├── ViewModels/          # MVVM ViewModels
-│   │   └── Helpers/             # Utilities
-│   └── HNReader.WinUI/          # WinUI 3 presentation
-│       ├── Views/               # XAML pages
-│       ├── Controls/            # Custom controls
-│       └── Converters/          # Value converters
-└── README.md
+src/
+├── HNReader.Core/           # Core business logic
+│   ├── Models/              # Data models
+│   ├── Services/            # API clients, AI orchestration
+│   ├── ViewModels/          # MVVM ViewModels
+│   └── Helpers/             # Utilities
+└── HNReader.WinUI/          # WinUI 3 presentation
+    ├── Views/               # XAML pages
+    ├── Controls/            # Custom controls
+    └── Converters/          # Value converters
 ```
-
-## Contributing
-
-Contributions are welcome! Please feel free to submit a Pull Request.
-
-## License
-
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
-
-## Acknowledgments
-
-- [Hacker News](https://news.ycombinator.com/) for the content API
-- [GitHub Copilot SDK](https://github.com/github/copilot-sdk) for AI capabilities
-- [CommunityToolkit.Mvvm](https://github.com/CommunityToolkit/dotnet) for MVVM infrastructure
-- [Windows App SDK](https://github.com/microsoft/WindowsAppSDK) for WinUI 3
