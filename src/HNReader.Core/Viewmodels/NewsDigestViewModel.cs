@@ -231,7 +231,7 @@ public partial class NewsDigestViewModel : BaseViewModel
         if (interests.Count > 0)
         {
             var names = interests.Select(i => i.Name).ToArray();
-            InterestsPreview = $"Your interests: {string.Join(", ", names)}";
+            InterestsPreview = $"Your interests are {string.Join(", ", names)}";
             HasInterests = true;
         }
         else

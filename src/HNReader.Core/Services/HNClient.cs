@@ -22,7 +22,7 @@ public class HNClient(HttpClient httpClient)
         var json = await httpClient.GetStringAsync(itemType.GetFeedEndpoint());
         var ids = Deserialize<List<int>>(json) ?? [];
 
-        _storyIdsCache ??= new Dictionary<StoryType, List<int>>();
+        _storyIdsCache ??= [];
         _storyIdsCache[itemType] = ids;
 
         return ids;

@@ -8,6 +8,7 @@ using HNReader.Core.Services;
 using System.Collections.Concurrent;
 using System.Collections.ObjectModel;
 
+
 namespace HNReader.Core.Viewmodels;
 
 /// <summary>
@@ -26,11 +27,15 @@ public abstract partial class PageViewModel : BaseViewModel
     private readonly IVaultFileService _vaultFileService;
     private bool _suppressSelectedStoryReset;
 
+    // Used to cancel in-flight comment fetch/parse when the user changes selection
+    // or toggles comments again. This keeps the UI responsive and prevents work
+    // for stale stories from completing late and competing for UI thread time.
+    private CancellationTokenSource? _commentsLoadCts;
+
     // In-memory comment cache shared across all PageViewModel instances.
     // Key: story ID, Value: built comment tree roots.
     // ConcurrentDictionary provides lock-free reads and thread-safe writes.
     private static readonly ConcurrentDictionary<int, List<WebCommentNode>> _commentCache = new();
-    private const int MaxCachedStories = 50;
 
     // In-memory AI insight cache shared across all PageViewModel instances.
     // Key: story ID, Value: cached insight with panel open state.
@@ -442,6 +447,8 @@ public abstract partial class PageViewModel : BaseViewModel
             return;
         }
 
+        CancelCommentsLoad();
+
         // Save current insight state to cache for the old story (if insight was generated)
         if (oldValue != null && HasInsight && !string.IsNullOrEmpty(InsightText))
         {
@@ -510,6 +517,16 @@ public abstract partial class PageViewModel : BaseViewModel
     {
         if (SelectedStory == null) return;
 
+        // If a load is currently in-flight, treat the toggle as a cancel action.
+        // The user is typically either changing their mind or about to select a
+        // different story; cancelling avoids wasted work.
+        if (IsCommentsLoading)
+        {
+            CancelCommentsLoad();
+            IsCommentsLoading = false;
+            return;
+        }
+
         if (AreCommentsVisible)
         {
             AreCommentsVisible = false;
@@ -533,8 +550,14 @@ public abstract partial class PageViewModel : BaseViewModel
             // Use the faster web-based approach if available
             if (_webClient != null)
             {
-                await LoadCommentsFromWebAsync();
+                _commentsLoadCts = new CancellationTokenSource();
+                await LoadCommentsFromWebAsync(_commentsLoadCts.Token);
             }
+        }
+        catch (OperationCanceledException)
+        {
+            // Swallow cancellation: it is expected when the user changes selection
+            // or cancels by toggling while a load is in progress.
         }
         catch (Exception ex)
         {
@@ -554,11 +577,13 @@ public abstract partial class PageViewModel : BaseViewModel
     /// Uses an in-memory ConcurrentDictionary cache to avoid re-fetching
     /// comments for stories that have already been loaded in this session.
     /// </summary>
-    private async Task LoadCommentsFromWebAsync()
+    private async Task LoadCommentsFromWebAsync(CancellationToken cancellationToken)
     {
         if (SelectedStory == null || _webClient == null) return;
 
         var storyId = SelectedStory.Id;
+
+        cancellationToken.ThrowIfCancellationRequested();
 
         // Check cache first
         if (_commentCache.TryGetValue(storyId, out var cached))
@@ -567,21 +592,21 @@ public abstract partial class PageViewModel : BaseViewModel
         }
         else
         {
-            var webComments = await _webClient.GetCommentsFromWebAsync(storyId);
+            var webComments = await _webClient.GetCommentsFromWebAsync(storyId, cancellationToken);
+
+            cancellationToken.ThrowIfCancellationRequested();
 
             // Build tree on a background thread to avoid blocking the UI.
             // WebCommentNode constructors call HtmlContentHelper.ToPlainText/ToMarkdown
             // which perform synchronous HTML parsing for every comment.
-            _webCommentRoots = await Task.Run(() => CommentTreeBuilder.BuildTree(webComments));
+            _webCommentRoots = await Task.Run(() => CommentTreeBuilder.BuildTree(webComments), cancellationToken);
 
-            // Evict oldest entries if the cache grows too large
-            if (_commentCache.Count >= MaxCachedStories)
-            {
-                _commentCache.Clear();
-            }
+            cancellationToken.ThrowIfCancellationRequested();
 
             _commentCache.TryAdd(storyId, _webCommentRoots);
         }
+
+        cancellationToken.ThrowIfCancellationRequested();
 
         // Replace the collection in one shot so the UI receives a single PropertyChanged
         // notification instead of N CollectionChanged events from individual Add() calls.
@@ -589,6 +614,23 @@ public abstract partial class PageViewModel : BaseViewModel
 
         OnPropertyChanged(nameof(ShowWebComments));
         OnPropertyChanged(nameof(ShowNoCommentsMessage));
+    }
+
+    private void CancelCommentsLoad()
+    {
+        try
+        {
+            _commentsLoadCts?.Cancel();
+        }
+        catch
+        {
+            // Best-effort cancellation.
+        }
+        finally
+        {
+            _commentsLoadCts?.Dispose();
+            _commentsLoadCts = null;
+        }
     }
 
     /// <summary>

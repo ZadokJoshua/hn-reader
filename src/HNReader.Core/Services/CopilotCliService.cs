@@ -259,7 +259,7 @@ public class CopilotCliService(
              You have read/write access to files in this folder, but cannot access anything outside it.
              Follow the instructions in Agent.md in the current directory exactly.
              Your ONLY task is to read {AppFileNames.UNPROCESSED_DIGEST_DATA_FILE_NAME}, apply the user's interests
-             to group and rank stories, and call the write_news_digest tool with the JSON output.
+             to group and rank stories save them in a JSON output.
              Do NOT modify {AppFileNames.UNPROCESSED_DIGEST_DATA_FILE_NAME}.
              The JSON schema is specified in Agent.md — follow it precisely.
              """;

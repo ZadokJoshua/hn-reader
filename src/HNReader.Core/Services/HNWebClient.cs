@@ -12,22 +12,21 @@ namespace HNReader.Core.Services;
 /// </summary>
 public class HNWebClient(HttpClient httpClient)
 {
-    private const string BaseUrl = "https://news.ycombinator.com";
-
     /// <summary>
     /// Fetches all comments for a story by parsing the HTML page directly.
     /// This is much faster than the API approach as it requires only one HTTP request.
     /// </summary>
     /// <param name="storyId">The HN story ID</param>
     /// <returns>A list of comments with their depth information preserved</returns>
-    public async Task<List<WebComment>> GetCommentsFromWebAsync(int storyId)
+    public async Task<List<WebComment>> GetCommentsFromWebAsync(int storyId, CancellationToken cancellationToken = default)
     {
         var comments = new List<WebComment>();
 
         try
         {
-            var url = $"{BaseUrl}/item?id={storyId}";
-            var html = await httpClient.GetStringAsync(url);
+            var html = await httpClient.GetStringAsync($"item?id={storyId}", cancellationToken);
+
+            cancellationToken.ThrowIfCancellationRequested();
 
             var doc = new HtmlDocument();
             doc.LoadHtml(html);
@@ -38,9 +37,14 @@ public class HNWebClient(HttpClient httpClient)
 
             foreach (var commentNode in commentNodes)
             {
+                cancellationToken.ThrowIfCancellationRequested();
                 var comment = ParseCommentFromNode(commentNode);
                 if (comment != null) comments.Add(comment);
             }
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
         }
         catch (Exception ex)
         {
@@ -105,7 +109,7 @@ public class HNWebClient(HttpClient httpClient)
         }
         catch (Exception ex)
         {
-            System.Diagnostics.Debug.WriteLine($"Error parsing comment: {ex.Message}");
+            Debug.WriteLine($"Error parsing comment: {ex.Message}");
             return null;
         }
     }
@@ -122,14 +126,13 @@ public class HNWebClient(HttpClient httpClient)
             foreach (var node in parNodes) node.Remove();
 
         // Get cleaned HTML directly without creating a new document
-        var cleanedHtml = commentTextNode.InnerHtml ?? string.Empty;
+        var cleanedHtml = commentTextNode.InnerHtml;
         return cleanedHtml.Trim();
     }
 
     private static long ParseTimestamp(string? timestampStr)
     {
-        if (string.IsNullOrEmpty(timestampStr))
-            return DateTimeOffset.UtcNow.ToUnixTimeSeconds();
+        if (string.IsNullOrEmpty(timestampStr)) return 0;
 
         // HN timestamp format: "2026-01-27T19:04:50 1769540690" (ISO date + Unix timestamp)
         // We'll use the Unix timestamp for accuracy
@@ -137,16 +140,12 @@ public class HNWebClient(HttpClient httpClient)
         
         // Try to parse the Unix timestamp (second part)
         if (parts.Length >= 2 && long.TryParse(parts[1], out var unixTimestamp))
-        {
             return unixTimestamp;
-        }
 
         // Fallback: try to parse the ISO date (first part)
         if (parts.Length >= 1 && DateTime.TryParse(parts[0], out var dateTime))
-        {
             return new DateTimeOffset(dateTime, TimeSpan.Zero).ToUnixTimeSeconds();
-        }
 
-        return DateTimeOffset.UtcNow.ToUnixTimeSeconds();
+        return 0;
     }
 }

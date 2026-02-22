@@ -10,6 +10,8 @@ using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using System;
 using System.IO;
+using System.Net;
+using System.Net.Http;
 
 namespace HNReader.WinUI;
 
@@ -169,6 +171,9 @@ public partial class App : Application
         {
             client.BaseAddress = new Uri("https://hacker-news.firebaseio.com/v0/");
             client.Timeout = TimeSpan.FromSeconds(60);
+        }).ConfigurePrimaryHttpMessageHandler(() => new HttpClientHandler
+        {
+            AutomaticDecompression = DecompressionMethods.All
         });
 
         // HN Web client for faster comment loading (scrapes HTML instead of API)
