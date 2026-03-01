@@ -34,7 +34,7 @@ public static class MarkdownGenerator
 
     private static void AppendNodeRecursive(WebCommentNode node, StringBuilder markdownBuilder)
     {
-        var content = HtmlContentHelper.ToPlainText(node.RawHtml);
+        var content = HtmlContentHelper.ToPlainText(node.MdText);
         if (string.IsNullOrWhiteSpace(content)) return;
 
         var normalizedContent = NormalizeCommentContent(content);

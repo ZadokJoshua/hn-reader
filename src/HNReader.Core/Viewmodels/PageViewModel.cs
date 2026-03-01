@@ -6,6 +6,7 @@ using HNReader.Core.Interfaces;
 using HNReader.Core.Models;
 using HNReader.Core.Services;
 using System.Collections.Concurrent;
+using System.Collections.Generic;
 using System.Collections.ObjectModel;
 
 
@@ -608,12 +609,8 @@ public abstract partial class PageViewModel : BaseViewModel
 
         cancellationToken.ThrowIfCancellationRequested();
 
-        // Replace the collection in one shot so the UI receives a single PropertyChanged
-        // notification instead of N CollectionChanged events from individual Add() calls.
-        WebCommentNodes = new ObservableCollection<WebCommentNode>(_webCommentRoots);
-
-        OnPropertyChanged(nameof(ShowWebComments));
-        OnPropertyChanged(nameof(ShowNoCommentsMessage));
+        // Refresh the flattened comment projection so nested replies show correctly.
+        RefreshVisibleWebComments();
     }
 
     private void CancelCommentsLoad()
@@ -634,10 +631,53 @@ public abstract partial class PageViewModel : BaseViewModel
     }
 
     /// <summary>
-    /// Toggles collapse state for a web comment.
-    /// Uses property change notification - no need to rebuild the list.
+    /// Toggles collapse state for a web comment and rebuilds the flattened projection
+    /// so child threads collapse/expand just like on the HN site.
     /// </summary>
-    public static void ToggleWebCommentCollapse(WebCommentNode node) => node.ToggleCollapsed();
+    public void ToggleWebCommentCollapse(WebCommentNode node)
+    {
+        if (node == null) return;
+
+        node.ToggleCollapsed();
+        RefreshVisibleWebComments();
+    }
+
+    private void RefreshVisibleWebComments()
+    {
+        if (_webCommentRoots == null || _webCommentRoots.Count == 0)
+        {
+            WebCommentNodes = [];
+            OnPropertyChanged(nameof(ShowWebComments));
+            OnPropertyChanged(nameof(ShowNoCommentsMessage));
+            return;
+        }
+
+        //var visibleNodes = FlattenVisibleWebComments(_webCommentRoots);
+        //WebCommentNodes = new ObservableCollection<WebCommentNode>(visibleNodes);
+
+        WebCommentNodes = new ObservableCollection<WebCommentNode>(_webCommentRoots);
+
+        OnPropertyChanged(nameof(ShowWebComments));
+        OnPropertyChanged(nameof(ShowNoCommentsMessage));
+    }
+
+    private static IEnumerable<WebCommentNode> FlattenVisibleWebComments(IEnumerable<WebCommentNode> nodes)
+    {
+        foreach (var node in nodes)
+        {
+            yield return node;
+
+            if (node.IsCollapsed || node.Children.Count == 0)
+            {
+                continue;
+            }
+
+            foreach (var child in FlattenVisibleWebComments(node.Children))
+            {
+                yield return child;
+            }
+        }
+    }
 
     private bool CanToggleFavorite() => SelectedStory != null;
 

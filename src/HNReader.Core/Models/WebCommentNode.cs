@@ -17,7 +17,7 @@ public class WebCommentNode : INotifyPropertyChanged
         Children = [];
         _depth = comment.Depth;
         
-        _rawHtml = comment.Text;
+        _mdText = HtmlContentHelper.ToMarkdown(comment?.Text);
 
         By = comment?.By ?? string.Empty;
         TimeAgo = comment?.TimeAgo;
@@ -25,7 +25,7 @@ public class WebCommentNode : INotifyPropertyChanged
 
     public ObservableCollection<WebCommentNode> Children { get; }
 
-    private readonly string? _rawHtml;
+    private readonly string? _mdText;
 
     private int _depth;
     public int Depth
@@ -59,7 +59,7 @@ public class WebCommentNode : INotifyPropertyChanged
     public string? TimeAgo { get; set; }
 
     // Cached text to avoid re-parsing HTML on every UI access
-    public string? RawHtml => _rawHtml;
+    public string? MdText => _mdText;
 
     // Icon changes based on collapsed state
     public string CollapseIcon => IsCollapsed ? "\uE76C" : "\uE76B";

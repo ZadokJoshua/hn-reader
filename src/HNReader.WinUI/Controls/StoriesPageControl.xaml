@@ -116,7 +116,7 @@
                             <!-- Comment Text -->
                             <toolkit:MarkdownTextBlock 
                                 TextWrapping="Wrap"
-                                Text="{Binding MarkdownText}" 
+                                Text="{Binding MdText}" 
                                 FontSize="13"
                                 Background="Transparent"
                                 CodeBackground="{ThemeResource LayerFillColorDefaultBrush}"
