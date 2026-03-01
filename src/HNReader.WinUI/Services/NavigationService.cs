@@ -6,7 +6,7 @@ using System;
 
 namespace HNReader.WinUI.Services;
 
-public class NavigationService(PageFactory pageFactory, IServiceProvider serviceProvider)
+public class NavigationService(PageFactory pageFactory)
 {
     private Frame? _frame;
 

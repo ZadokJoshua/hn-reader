@@ -118,7 +118,7 @@ public class SettingsService : ISettingsService
     {
         try
         {
-            var json = JsonSerializer.Serialize(_settings, new JsonSerializerOptions { WriteIndented = true });
+            var json = JsonSerializer.Serialize(_settings, CoreHelper.JsonSerializerOptions);
             File.WriteAllText(_settingsFilePath, json);
         }
         catch (Exception ex)

@@ -14,10 +14,10 @@ namespace HNReader.WinUI;
 public sealed partial class MainWindow : Window
 {
     private readonly MainViewModel _mainViewModel;
-    private NavigationService? _navigationService;
-    private ISettingsService? _settingsService;
+    private readonly NavigationService? _navigationService;
+    private readonly ISettingsService? _settingsService;
     private AppWindow? _appWindow;
-    private IServiceProvider? _serviceProvider;
+    private readonly IServiceProvider? _serviceProvider;
     private bool _suppressNavSelection;
 
     public MainWindow(MainViewModel mainViewModel)

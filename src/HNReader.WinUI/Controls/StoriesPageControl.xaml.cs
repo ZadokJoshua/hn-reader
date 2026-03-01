@@ -144,13 +144,13 @@ public sealed partial class StoriesPageControl : UserControl
         await ScrollToFirstNewItem();
     }
 
-    private async System.Threading.Tasks.Task ScrollToFirstNewItem()
+    private async Task ScrollToFirstNewItem()
     {
         if (DataContext is not PageViewModel vm) return;
         if (vm.Stories.Count <= _previousStoryCount) return;
 
         // Small delay to let the UI update
-        await System.Threading.Tasks.Task.Delay(100);
+        await Task.Delay(100);
 
         // Scroll to the first newly loaded item
         if (_previousStoryCount < vm.Stories.Count)
@@ -180,18 +180,9 @@ public sealed partial class StoriesPageControl : UserControl
     {
         try
         {
-            if (sender is FrameworkElement fe && fe.DataContext is WebCommentNode node)
+            if (sender is FrameworkElement fe && fe.DataContext is WebCommentNode node && DataContext is PageViewModel vm)
             {
-                // Simply toggle the collapsed state - the recursive template handles visibility via binding
-                var dq = Microsoft.UI.Dispatching.DispatcherQueue.GetForCurrentThread();
-                if (dq != null)
-                {
-                    dq.TryEnqueue(() => node.ToggleCollapsed());
-                }
-                else
-                {
-                    node.ToggleCollapsed();
-                }
+                vm.ToggleWebCommentCollapse(node);
             }
         }
         catch (Exception ex)
@@ -274,7 +265,7 @@ public sealed partial class StoriesPageControl : UserControl
             if (DataContext is not PageViewModel vm || vm.SelectedStory == null) return;
 
             var hnUrl = $"https://news.ycombinator.com/item?id={vm.SelectedStory.Id}";
-            await Windows.System.Launcher.LaunchUriAsync(new Uri(hnUrl));
+            await Launcher.LaunchUriAsync(new Uri(hnUrl));
         }
         catch (Exception ex)
         {
@@ -282,7 +273,7 @@ public sealed partial class StoriesPageControl : UserControl
         }
     }
 
-    private IntPtr GetWindowHandle()
+    private static IntPtr GetWindowHandle()
     {
         var window = App.CurrentWindow;
         if (window != null)

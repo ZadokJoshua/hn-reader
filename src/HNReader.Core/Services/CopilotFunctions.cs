@@ -28,17 +28,17 @@ public class CopilotFunctions(
     }
 
     [Description("Fetch comments for a Hacker News story")]
-    public async Task<object> ReadCommentsAsync(
-        [Description("The Hacker News story/object ID to fetch comments for")] int storyId)
+    public async Task<List<string>> ReadCommentsAsync(
+        [Description("The Hacker News story ID to fetch comments for")] int storyId)
     {
         Debug.WriteLine($"[DigestGen] read_comments called for story {storyId}");
         var comments = await hnWebClient.GetCommentsFromWebAsync(storyId);
         return ProcessCommentsForDigest(comments);
     }
 
-    private static object ProcessCommentsForDigest(List<WebComment> comments)
+    private static List<string> ProcessCommentsForDigest(List<WebComment> comments)
     {
-        var processedComments = new List<object>();
+        var processedComments = new List<string>();
         var totalChars = 0;
 
         var eligibleComments = comments
@@ -47,25 +47,17 @@ public class CopilotFunctions(
 
         foreach (var comment in eligibleComments)
         {
-            if (processedComments.Count >= MaxCommentsToReturn)
-                break;
+            if (processedComments.Count >= MaxCommentsToReturn) break;
 
             var text = comment.Text ?? string.Empty;
 
-            if (text.Length > MaxCommentLength)
-            {
-                text = text[..MaxCommentLength] + "...";
-            }
+            if (text.Length > MaxCommentLength) text = text[..MaxCommentLength] + "...";
 
-            if (totalChars + text.Length > MaxTotalCommentChars)
-                break;
+            if (totalChars + text.Length > MaxTotalCommentChars) break;
 
-            processedComments.Add(new
-            {
-                author = comment.By,
-                depth = comment.Depth,
-                text
-            });
+            // Format as "<author>: <comment>"
+            var formattedComment = $"{comment.By}: {text}";
+            processedComments.Add(formattedComment);
 
             totalChars += text.Length;
         }
@@ -74,12 +66,6 @@ public class CopilotFunctions(
             $"[DigestGen] Returning {processedComments.Count} comments ({totalChars} chars) " +
             $"from {comments.Count} total (filtered {eligibleComments.Count} shallow)");
 
-        return new
-        {
-            status = "ok",
-            totalCommentCount = comments.Count,
-            returnedCommentCount = processedComments.Count,
-            comments = processedComments
-        };
+        return processedComments;
     }
 }

@@ -16,7 +16,6 @@ public class HNSearchResult
     public int TotalHits { get; set; }
 }
 
-
 public class HNHit
 {
     [JsonPropertyName("objectID")]
@@ -80,20 +79,11 @@ public class HNHit
     {
         uri = null;
 
-        if (string.IsNullOrWhiteSpace(input))
-        {
-            return false;
-        }
+        if (string.IsNullOrWhiteSpace(input)) return false;
 
-        if (!Uri.TryCreate(input, UriKind.Absolute, out var parsed))
-        {
-            return false;
-        }
+        if (!Uri.TryCreate(input, UriKind.Absolute, out var parsed)) return false;
 
-        if (parsed.Scheme != Uri.UriSchemeHttp && parsed.Scheme != Uri.UriSchemeHttps)
-        {
-            return false;
-        }
+        if (parsed.Scheme != Uri.UriSchemeHttp && parsed.Scheme != Uri.UriSchemeHttps) return false;
 
         uri = parsed;
         return true;

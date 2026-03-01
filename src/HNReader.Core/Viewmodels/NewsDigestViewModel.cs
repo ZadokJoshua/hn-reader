@@ -21,11 +21,6 @@ public partial class NewsDigestViewModel : BaseViewModel
     private readonly HNClient _hnClient;
     private bool _hasCheckedExistingDigest;
 
-    private static readonly JsonSerializerOptions _indentedJsonOptions = new()
-    {
-        WriteIndented = true
-    };
-
     public NewsDigestViewModel(
         ISettingsService settingsService,
         CopilotCliService copilotCliService,
@@ -129,7 +124,7 @@ public partial class NewsDigestViewModel : BaseViewModel
             ct.ThrowIfCancellationRequested();
 
             // Serialize raw hits to JSON and save to the knowledge base
-            var rawJson = JsonSerializer.Serialize(searchResult.Hits, _indentedJsonOptions);
+            var rawJson = JsonSerializer.Serialize(searchResult.Hits, CoreHelper.JsonSerializerOptions);
             var digestFolder = KnowledgeBaseFolders.NewsDigest.GetDescription();
             var rawDataPath = Path.Combine(digestFolder, AppFileNames.UNPROCESSED_DIGEST_DATA_FILE_NAME);
             await _vaultFileService.WriteTextAsync(rawDataPath, rawJson);

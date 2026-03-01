@@ -202,7 +202,7 @@ public class CopilotCliService(
         
         // Use a reasonable timeout; cancellation is handled at session level
         cancellationToken.ThrowIfCancellationRequested();
-        var response = await session.SendAndWaitAsync(new MessageOptions { Prompt = prompt });
+        var response = await session.SendAndWaitAsync(new MessageOptions { Prompt = prompt }, cancellationToken: cancellationToken);
 
         if (response?.Data.Content == null)
         {
@@ -215,7 +215,7 @@ public class CopilotCliService(
         return response.Data.Content;
     }
 
-        private static string BuildInsightPrompt(int storyId) => $"""
+    private static string BuildInsightPrompt(int storyId) => $"""
             Read `{storyId}.md` in the current directory and produce the insight in markdown.
             Follow the instructions in Agent.md in the current directory exactly.
             Return ONLY the final markdown content. Do not add any prefatory sentence, commentary, code fences, or notes before `## TL;DR`.

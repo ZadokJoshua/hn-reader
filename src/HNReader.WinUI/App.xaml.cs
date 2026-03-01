@@ -68,10 +68,7 @@ public partial class App : Application
         };
 
         // Ensure knowledge base is initialized on startup if vault exists
-        if (settingsService.HasVault)
-        {
-            _ = vaultFileService.InitializeKnowledgeBaseAsync();
-        }
+        if (settingsService.HasVault) _ = vaultFileService.InitializeKnowledgeBaseAsync();
     }
 
     private void OnThemeChanged(object? sender, AppTheme theme)
@@ -144,7 +141,7 @@ public partial class App : Application
         services.AddSingleton<BestPageViewModel>();
         services.AddSingleton<ShowPageViewModel>();
         services.AddSingleton<AskPageViewModel>();
-        services.AddSingleton<NewsDigestViewModel>(sp => new NewsDigestViewModel(
+        services.AddSingleton(sp => new NewsDigestViewModel(
             sp.GetRequiredService<ISettingsService>(),
             sp.GetRequiredService<CopilotCliService>(),
             sp.GetRequiredService<IVaultFileService>(),

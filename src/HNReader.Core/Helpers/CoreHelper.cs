@@ -5,4 +5,9 @@ namespace HNReader.Core.Helpers;
 public static class CoreHelper
 {
     public static T? Deserialize<T>(string json) => JsonSerializer.Deserialize<T>(json);
+
+    public static readonly JsonSerializerOptions JsonSerializerOptions = new()
+    {
+        WriteIndented = true
+    };
 }

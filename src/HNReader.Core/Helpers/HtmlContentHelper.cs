@@ -31,10 +31,7 @@ public static class HtmlContentHelper
         var innerHtml = doc.DocumentNode.InnerHtml ?? html;
         var markdown = MarkdownConverter.Convert(innerHtml);
 
-        if (string.IsNullOrWhiteSpace(markdown))
-        {
-            return ToPlainText(html);
-        }
+        if (string.IsNullOrWhiteSpace(markdown)) return ToPlainText(html);
 
         markdown = WebUtility.HtmlDecode(markdown);
 

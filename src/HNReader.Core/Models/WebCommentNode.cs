@@ -1,7 +1,8 @@
+using HNReader.Core.Helpers;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Runtime.CompilerServices;
-using HNReader.Core.Helpers;
+using System.Xml.Linq;
 
 namespace HNReader.Core.Models;
 
@@ -13,18 +14,18 @@ public class WebCommentNode : INotifyPropertyChanged
 {
     public WebCommentNode(WebComment comment)
     {
-        Comment = comment;
         Children = [];
         _depth = comment.Depth;
         
-        // Pre-compute and cache the parsed text to avoid re-parsing on every UI access
-        _markdownText = HtmlContentHelper.ToMarkdown(comment?.Text);
+        _rawHtml = comment.Text;
+
+        By = comment?.By ?? string.Empty;
+        TimeAgo = comment?.TimeAgo;
     }
 
-    public WebComment Comment { get; }
     public ObservableCollection<WebCommentNode> Children { get; }
 
-    private readonly string? _markdownText;
+    private readonly string? _rawHtml;
 
     private int _depth;
     public int Depth
@@ -54,11 +55,11 @@ public class WebCommentNode : INotifyPropertyChanged
         }
     }
 
-    public string By => Comment?.By ?? string.Empty;
-    public string? TimeAgo => Comment?.TimeAgo;
+    public string By { get; set;  }
+    public string? TimeAgo { get; set; }
 
     // Cached text to avoid re-parsing HTML on every UI access
-    public string? MarkdownText => _markdownText;
+    public string? RawHtml => _rawHtml;
 
     // Icon changes based on collapsed state
     public string CollapseIcon => IsCollapsed ? "\uE76C" : "\uE76B";

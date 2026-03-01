@@ -136,7 +136,7 @@ public sealed partial class NewsDigestPage : Page
         return radioButton;
     }
     
-    private UIElement CreateSegmentContent(string title, int? storyCount)
+    private static StackPanel CreateSegmentContent(string title, int? storyCount)
     {
         var panel = new StackPanel
         {

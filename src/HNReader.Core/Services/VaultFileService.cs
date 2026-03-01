@@ -4,7 +4,6 @@ using HNReader.Core.Helpers;
 using HNReader.Core.Interfaces;
 using HNReader.Core.Models;
 using System.Diagnostics;
-using System.IO;
 using System.Reflection;
 using System.Text.Json;
 
@@ -23,7 +22,6 @@ public class VaultFileService : IVaultFileService
             { AppTemplateTokens.UNPROCESSED_DIGEST_DATA_FILE_NAME, AppFileNames.UNPROCESSED_DIGEST_DATA_FILE_NAME },
             { AppTemplateTokens.NEWS_DIGEST_FOLDER, AppFolderNames.NEWS_DIGEST_FOLDER },
             { AppTemplateTokens.STORIES_FOLDER, AppFolderNames.STORIES_FOLDER },
-            { AppTemplateTokens.STORIES_INDEX_FILE_NAME, AppFileNames.STORIES_INDEX_FILE_NAME },
             { AppTemplateTokens.STORY_FILE_TEMPLATE, AppFileTemplates.STORY_FILE_TEMPLATE },
             { AppTemplateTokens.STORY_SUMMARY_TEMPLATE, AppFileTemplates.STORY_SUMMARY_TEMPLATE }
         };
@@ -188,10 +186,7 @@ public class VaultFileService : IVaultFileService
 
         try
         {
-            if (!Directory.Exists(fullPath))
-            {
-                return Task.FromResult(Enumerable.Empty<string>());
-            }
+            if (!Directory.Exists(fullPath)) return Task.FromResult(Enumerable.Empty<string>());
 
             var files = Directory.GetFiles(fullPath, searchPattern)
                 .Select(f => Path.GetRelativePath(_basePath!, f));
@@ -315,10 +310,7 @@ public class VaultFileService : IVaultFileService
     {
         EnsureBasePathSet();
 
-        var json = JsonSerializer.Serialize(digest, new JsonSerializerOptions
-        {
-            WriteIndented = true
-        });
+        var json = JsonSerializer.Serialize(digest, CoreHelper.JsonSerializerOptions);
 
         var digestPath = Path.Combine(
             KnowledgeBaseFolders.NewsDigest.GetDescription(), AppFileNames.DIGEST_FILE_NAME);
@@ -357,9 +349,7 @@ public class VaultFileService : IVaultFileService
         EnsureBasePathSet();
 
         if (storyId <= 0)
-        {
             throw new ArgumentOutOfRangeException(nameof(storyId), "Story ID must be greater than zero.");
-        }
 
         var relativePath = GetStoryMarkdownRelativePath(storyId);
         return DeleteFileAsync(relativePath);
@@ -376,10 +366,8 @@ public class VaultFileService : IVaultFileService
         var fullPath = Path.GetFullPath(Path.Combine(_basePath!, relativePath));
 
         if (!fullPath.StartsWith(_basePath!, StringComparison.OrdinalIgnoreCase))
-        {
             throw new UnauthorizedAccessException(
                 $"Access denied: path '{relativePath}' resolves outside the knowledge base.");
-        }
 
         return fullPath;
     }
@@ -387,10 +375,8 @@ public class VaultFileService : IVaultFileService
     private void EnsureBasePathSet()
     {
         if (string.IsNullOrEmpty(_basePath))
-        {
             throw new InvalidOperationException(
                 "Vault path is not set. Select a vault folder before performing file operations.");
-        }
     }
 
     private async Task DeployEmbeddedResourceIfMissingAsync(string resourceName, string relativePath)
@@ -426,15 +412,11 @@ public class VaultFileService : IVaultFileService
 
         var updatedContent = content;
         foreach (var replacement in TemplateTokenReplacements)
-        {
             updatedContent = updatedContent.Replace(replacement.Key, replacement.Value, StringComparison.Ordinal);
-        }
 
         return updatedContent;
     }
 
-    private static string GetStoryMarkdownRelativePath(int storyId)
-    {
-        return Path.Combine(AppFolderNames.STORIES_FOLDER, $"{storyId}.md");
-    }
+    private static string GetStoryMarkdownRelativePath(int storyId) 
+        => Path.Combine(AppFolderNames.STORIES_FOLDER, $"{storyId}.md");
 }
