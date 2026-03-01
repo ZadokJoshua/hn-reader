@@ -92,7 +92,7 @@ dotnet restore
 dotnet build
 
 # Run the app
-dotnet run --project src/HNReader.WinUI
+dotnet run --project .\src\HNReader.WinUI\HNReader.WinUI.csproj -r win-x64
 ```
 
 Or open `HNReaderApp.sln` in Visual Studio and press F5.
