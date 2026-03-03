@@ -2,7 +2,6 @@ using HNReader.Core.Helpers;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Runtime.CompilerServices;
-using System.Xml.Linq;
 
 namespace HNReader.Core.Models;
 

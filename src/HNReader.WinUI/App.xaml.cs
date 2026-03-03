@@ -107,7 +107,7 @@ public partial class App : Application
         {
             await ErrorDialogService.ShowErrorAsync(
                 "Unexpected Error",
-                $"An unexpected error occurred:\n\n{e.Message}\n\nIf this keeps happening, please restart the app.");
+                $"An unexpected error occurred:\n\n{e.Message}");
         });
     }
 
@@ -125,6 +125,7 @@ public partial class App : Application
             var settings = sp.GetRequiredService<ISettingsService>();
             return new VaultFileService(settings.VaultPath);
         });
+
         // Content scraper for digest agent article fetching
         services.AddHttpClient<IContentScraperService, ContentScraperService>(client =>
         {

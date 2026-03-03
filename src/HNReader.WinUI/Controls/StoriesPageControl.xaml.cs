@@ -182,7 +182,7 @@ public sealed partial class StoriesPageControl : UserControl
         {
             if (sender is FrameworkElement fe && fe.DataContext is WebCommentNode node && DataContext is PageViewModel vm)
             {
-                vm.ToggleWebCommentCollapse(node);
+                PageViewModel.ToggleWebCommentCollapse(node);
             }
         }
         catch (Exception ex)

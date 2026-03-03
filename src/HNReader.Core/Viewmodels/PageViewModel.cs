@@ -634,12 +634,11 @@ public abstract partial class PageViewModel : BaseViewModel
     /// Toggles collapse state for a web comment and rebuilds the flattened projection
     /// so child threads collapse/expand just like on the HN site.
     /// </summary>
-    public void ToggleWebCommentCollapse(WebCommentNode node)
+    public static void ToggleWebCommentCollapse(WebCommentNode node)
     {
         if (node == null) return;
 
         node.ToggleCollapsed();
-        RefreshVisibleWebComments();
     }
 
     private void RefreshVisibleWebComments()
