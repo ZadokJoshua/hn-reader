@@ -792,7 +792,7 @@
                             CodeForeground="{ThemeResource TextFillColorPrimaryBrush}"
                             InlineCodeBackground="{ThemeResource LayerFillColorDefaultBrush}"
                             InlineCodeBorderBrush="{ThemeResource DividerStrokeColorDefaultBrush}"
-                            LinkForeground="{ThemeResource AccentTextFillColorPrimaryBrush}"
+                            LinkForeground="#FF6600"
                             LinkClicked="OnInsightMarkdownLinkClicked"
                             IsTextSelectionEnabled="True" />
                     </Border>
@@ -809,9 +809,9 @@
                             </TransitionCollection>
                         </Border.Transitions>
                         <StackPanel Orientation="Horizontal" Spacing="6">
-                            <FontIcon Glyph="&#xE82F;" FontSize="12" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                            <FontIcon Glyph="&#xE82F;" FontSize="12" Foreground="#FF6600" />
                             <TextBlock 
-                                Text="Click on @author links in the insight to scroll to that comment" 
+                                Text="Orange links are comment references — click to scroll to the comment" 
                                 FontSize="11" 
                                 Foreground="{ThemeResource TextFillColorTertiaryBrush}" 
                                 TextWrapping="Wrap" />

@@ -42,7 +42,9 @@ public static class MarkdownGenerator
             ? string.Empty
             : $"{new string(' ', node.Depth * 2)}↳ ";
 
-        markdownBuilder.AppendLine($"{depthPrefix}@{node.By}: {normalizedContent}");
+        // Include comment ID so the AI agent can produce clickable references
+        // Format: [CID:12345] @author: content
+        markdownBuilder.AppendLine($"{depthPrefix}[CID:{node.CommentId}] @{node.By}: {normalizedContent}");
 
         // Recursively visit children (Depth-First)
         foreach (var child in node.Children) AppendNodeRecursive(child, markdownBuilder);

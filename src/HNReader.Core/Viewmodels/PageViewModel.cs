@@ -717,6 +717,30 @@ public abstract partial class PageViewModel : BaseViewModel
         return FindNodeRecursive(_webCommentRoots, author.Trim(), textSnippet?.Trim());
     }
 
+    /// <summary>
+    /// Finds a comment node by its unique numeric comment ID.
+    /// Used by the UI to scroll to a comment referenced in AI insights via hn-comment:// links.
+    /// Searches depth-first through the entire comment tree.
+    /// </summary>
+    public WebCommentNode? FindCommentById(int commentId)
+    {
+        if (_webCommentRoots == null || commentId <= 0) return null;
+        return FindNodeByIdRecursive(_webCommentRoots, commentId);
+    }
+
+    private static WebCommentNode? FindNodeByIdRecursive(IEnumerable<WebCommentNode> nodes, int commentId)
+    {
+        foreach (var node in nodes)
+        {
+            if (node.CommentId == commentId)
+                return node;
+
+            var childResult = FindNodeByIdRecursive(node.Children, commentId);
+            if (childResult != null) return childResult;
+        }
+        return null;
+    }
+
     private static WebCommentNode? FindNodeRecursive(IEnumerable<WebCommentNode> nodes, string author, string? textSnippet)
     {
         foreach (var node in nodes)

@@ -24,9 +24,9 @@ ID:{StoryId}|By:{Author}
 
 ---
 ## Discussion
-@rootAuthor: Root-level comment text
-  ↳ @replyAuthor: Reply text
-    ↳ @deeperReplyAuthor: Nested reply text
+[CID:12345] @rootAuthor: Root-level comment text
+  ↳ [CID:12346] @replyAuthor: Reply text
+    ↳ [CID:12347] @deeperReplyAuthor: Nested reply text
 ```
 
 Interpretation rules:
@@ -35,6 +35,7 @@ Interpretation rules:
 - `## Content` is the source material of the post.
 - `## Discussion` is the Hacker News thread.
 - Comment hierarchy is shown by indentation and `↳` nesting depth.
+- Each comment is prefixed with `[CID:{id}]` — a unique numeric comment identifier. Use this ID when referencing comments (see rule 10).
 
 ## Required Insight Output Structure
 
@@ -57,4 +58,4 @@ Return markdown with these sections in order:
 7. Do NOT include lead-ins like "Now I'll provide..." or any meta commentary.
 8. Use markdown formatting explicitly: bullets (`-`), bold (`**text**`) for emphasis, and blank lines between sections.
 9. Do not wrap the final answer in code fences.
-10. When referencing specific commenters, always use **clickable author links** in the format `[@username](@username)`. This allows the reader to click on the reference and the app will scroll to that commenter's comment. For example: "[@pgbovine](@pgbovine) argues that..." or "As [@dang](@dang) points out...".
+10. When referencing specific commenters, always use **clickable comment links** that include the comment's CID. Use the format `[@username](https://hn-comment/CID)` where `CID` is the numeric comment identifier from the `[CID:...]` prefix in the discussion. This renders as a tappable link that scrolls the reader to that exact comment. For example: "[@pgbovine](https://hn-comment/12345) argues that..." or "As [@dang](https://hn-comment/67890) points out...". Never omit the `https://hn-comment/` prefix or the CID number.

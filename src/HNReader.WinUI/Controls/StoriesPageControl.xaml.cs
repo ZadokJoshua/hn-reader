@@ -389,23 +389,35 @@ public sealed partial class StoriesPageControl : UserControl
 
     /// <summary>
     /// Handles link clicks in the AI insight MarkdownTextBlock.
-    /// If the link text starts with "@", it's treated as a comment reference.
-    /// The UI scrolls to the matching comment and highlights it briefly.
-    /// Otherwise, it opens the link in the default browser.
+    /// Links using "https://hn-comment/{commentId}" trigger scroll-to-comment.
+    /// All other links open in the default browser.
     /// </summary>
     private async void OnInsightMarkdownLinkClicked(object sender, LinkClickedEventArgs e)
     {
         if (string.IsNullOrWhiteSpace(e.Link)) return;
 
-        // Check if this is a comment author reference (e.g., "@username")
         var link = e.Link.Trim();
+
+        // Check for comment reference links (e.g., "https://hn-comment/12345")
+        const string commentProtocol = "https://hn-comment/";
+        if (link.StartsWith(commentProtocol, StringComparison.OrdinalIgnoreCase))
+        {
+            var idString = link[commentProtocol.Length..].TrimEnd('/');
+            if (int.TryParse(idString, out var commentId) && commentId > 0)
+            {
+                await ScrollToCommentByIdAsync(commentId);
+                return;
+            }
+            Debug.WriteLine($"Invalid comment ID in link: {link}");
+            return;
+        }
+
+        // Fallback: check for legacy @author format (e.g., "@username")
         if (link.StartsWith("@") || link.StartsWith("%40"))
         {
-            // Extract author name from the reference
             var author = link.TrimStart('@').Trim();
             author = WebUtility.UrlDecode(author);
             if (author.StartsWith("@")) author = author[1..];
-            
             await ScrollToCommentByAuthorAsync(author);
             return;
         }
@@ -415,31 +427,30 @@ public sealed partial class StoriesPageControl : UserControl
     }
 
     /// <summary>
-    /// Scrolls the comments section to a comment by a specific author
+    /// Scrolls the comments section to a comment identified by its unique numeric ID
     /// and highlights it temporarily with a visible border.
-    /// Called from AI insight @author reference links.
+    /// Called from AI insight hn-comment:// reference links.
     /// </summary>
-    private async Task ScrollToCommentByAuthorAsync(string author)
+    private async Task ScrollToCommentByIdAsync(int commentId)
     {
         if (DataContext is not PageViewModel vm) return;
 
-        // Find the comment by author in the comment tree
-        var targetNode = vm.FindCommentByAuthor(author);
+        // Find the comment by ID in the comment tree
+        var targetNode = vm.FindCommentById(commentId);
         if (targetNode == null)
         {
-            Debug.WriteLine($"Could not find comment by author: {author}");
+            Debug.WriteLine($"Could not find comment with ID: {commentId}");
             return;
         }
 
         // Ensure comments section is visible and loaded
         if (!vm.AreCommentsVisible)
         {
-            // Trigger comment loading, then scroll once loaded
             if (vm.ToggleCommentsCommand.CanExecute(null))
             {
                 await vm.ToggleCommentsCommand.ExecuteAsync(null);
             }
-            // Wait a moment for comments to render
+            // Wait for comments to render
             await Task.Delay(300);
         }
 
@@ -450,6 +461,35 @@ public sealed partial class StoriesPageControl : UserControl
         await Task.Delay(100);
 
         // Scroll to the comment within the ScrollViewer
+        ScrollToCommentNode(targetNode);
+    }
+
+    /// <summary>
+    /// Legacy fallback: scrolls to a comment by author name.
+    /// Used when the AI output uses the older @author format without a comment ID.
+    /// </summary>
+    private async Task ScrollToCommentByAuthorAsync(string author)
+    {
+        if (DataContext is not PageViewModel vm) return;
+
+        var targetNode = vm.FindCommentByAuthor(author);
+        if (targetNode == null)
+        {
+            Debug.WriteLine($"Could not find comment by author: {author}");
+            return;
+        }
+
+        if (!vm.AreCommentsVisible)
+        {
+            if (vm.ToggleCommentsCommand.CanExecute(null))
+            {
+                await vm.ToggleCommentsCommand.ExecuteAsync(null);
+            }
+            await Task.Delay(300);
+        }
+
+        _ = vm.HighlightCommentAsync(targetNode, 3000);
+        await Task.Delay(100);
         ScrollToCommentNode(targetNode);
     }
 
