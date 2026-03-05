@@ -75,7 +75,12 @@
 
                 <!-- Comment + Children Container -->
                 <StackPanel Grid.Column="1" Margin="4,0,0,0">
-                    <Border Style="{StaticResource CommentCardBorderStyle}">
+                    <!-- Comment card with highlight border for AI insight references -->
+                    <Border 
+                        Style="{StaticResource CommentCardBorderStyle}"
+                        BorderBrush="{Binding IsHighlighted, Converter={StaticResource HighlightBorderBrushConverter}}"
+                        BorderThickness="{Binding IsHighlighted, Converter={StaticResource HighlightBorderThicknessConverter}}"
+                        Tag="{Binding CommentId}">
                         <StackPanel Spacing="8">
                             <!-- Comment Header -->
                             <Grid>
@@ -111,7 +116,6 @@
                                         Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
                                 </Button>
                             </Grid>
-
 
                             <!-- Comment Text -->
                             <toolkit:MarkdownTextBlock 
@@ -601,6 +605,7 @@
 
                         <!-- Scrollable Comments List (fills remaining space) -->
                         <ScrollViewer 
+                            x:Name="CommentsScrollViewer"
                             Grid.Row="2" 
                             VerticalScrollBarVisibility="Auto"
                             Padding="20,16,20,20"
@@ -621,11 +626,19 @@
                                     </StackPanel>
                                 </Border>
 
-                                <!-- Web Comments List -->
+                                <!-- Web Comments List with entrance transitions for smooth loading -->
                                 <ItemsControl
+                                    x:Name="WebCommentsItemsControl"
                                     ItemsSource="{Binding WebCommentNodes}"
                                     ItemTemplate="{StaticResource WebCommentTemplate}"
-                                    Visibility="{Binding ShowWebComments, Converter={StaticResource BoolToVisibilityConverter}}" />
+                                    Visibility="{Binding ShowWebComments, Converter={StaticResource BoolToVisibilityConverter}}">
+                                    <ItemsControl.ItemContainerTransitions>
+                                        <TransitionCollection>
+                                            <AddDeleteThemeTransition />
+                                            <EntranceThemeTransition IsStaggeringEnabled="True" FromVerticalOffset="20" />
+                                        </TransitionCollection>
+                                    </ItemsControl.ItemContainerTransitions>
+                                </ItemsControl>
 
                                 <!-- No Comments -->
                                 <StackPanel
@@ -722,12 +735,17 @@
                         </StackPanel>
                     </Border>
 
-                    <!-- Loading State -->
+                    <!-- Loading State with pulse animation -->
                     <StackPanel 
                         Spacing="12" 
                         HorizontalAlignment="Center"
                         Margin="0,24,0,0"
                         Visibility="{Binding IsInsightLoading, Converter={StaticResource BoolToVisibilityConverter}}">
+                        <StackPanel.Transitions>
+                            <TransitionCollection>
+                                <EntranceThemeTransition FromVerticalOffset="20" />
+                            </TransitionCollection>
+                        </StackPanel.Transitions>
                         <ProgressRing Width="32" Height="32" IsActive="{Binding IsInsightLoading}" />
                         <TextBlock 
                             Text="{Binding InsightProgressMessage, FallbackValue='Generating insights...'}" 
@@ -750,14 +768,20 @@
                         IsClosable="True"
                         Visibility="{Binding HasInsightError, Converter={StaticResource BoolToVisibilityConverter}}" />
 
-                    <!-- Insight Result -->
+                    <!-- Insight Result with entrance animation -->
                     <Border 
+                        x:Name="InsightResultBorder"
                         Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
                         BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
                         BorderThickness="1"
                         CornerRadius="8"
                         Padding="16"
                         Visibility="{Binding HasInsight, Converter={StaticResource BoolToVisibilityConverter}}">
+                        <Border.Transitions>
+                            <TransitionCollection>
+                                <EntranceThemeTransition FromVerticalOffset="30" />
+                            </TransitionCollection>
+                        </Border.Transitions>
                         <toolkit:MarkdownTextBlock 
                             Text="{Binding InsightText}" 
                             TextWrapping="Wrap"
@@ -768,12 +792,35 @@
                             CodeForeground="{ThemeResource TextFillColorPrimaryBrush}"
                             InlineCodeBackground="{ThemeResource LayerFillColorDefaultBrush}"
                             InlineCodeBorderBrush="{ThemeResource DividerStrokeColorDefaultBrush}"
-                            LinkForeground="{ThemeResource AccentTextFillColorPrimaryBrush}" />
+                            LinkForeground="{ThemeResource AccentTextFillColorPrimaryBrush}"
+                            LinkClicked="OnInsightMarkdownLinkClicked"
+                            IsTextSelectionEnabled="True" />
+                    </Border>
+
+                    <!-- Tip: Click @author references to scroll to their comment -->
+                    <Border
+                        Background="{ThemeResource LayerFillColorDefaultBrush}"
+                        CornerRadius="6"
+                        Padding="10,8"
+                        Visibility="{Binding HasInsight, Converter={StaticResource BoolToVisibilityConverter}}">
+                        <Border.Transitions>
+                            <TransitionCollection>
+                                <EntranceThemeTransition FromVerticalOffset="20" />
+                            </TransitionCollection>
+                        </Border.Transitions>
+                        <StackPanel Orientation="Horizontal" Spacing="6">
+                            <FontIcon Glyph="&#xE82F;" FontSize="12" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                            <TextBlock 
+                                Text="Click on @author links in the insight to scroll to that comment" 
+                                FontSize="11" 
+                                Foreground="{ThemeResource TextFillColorTertiaryBrush}" 
+                                TextWrapping="Wrap" />
+                        </StackPanel>
                     </Border>
 
 
 
-                    <!-- Generate Insights Button -->
+                    <!-- Generate Insights Button with entrance animation -->
                     <Button 
                         Command="{Binding GenerateInsightCommand}"
                         Style="{StaticResource AccentButtonStyle}"
@@ -781,6 +828,11 @@
                         Padding="12"
                         CornerRadius="8"
                         Visibility="{Binding ShowGenerateInsightButton, Converter={StaticResource BoolToVisibilityConverter}}">
+                        <Button.Transitions>
+                            <TransitionCollection>
+                                <EntranceThemeTransition FromVerticalOffset="20" />
+                            </TransitionCollection>
+                        </Button.Transitions>
                         <StackPanel Orientation="Horizontal" Spacing="8" HorizontalAlignment="Center">
                             <FontIcon Glyph="&#xE946;" FontSize="16" />
                             <TextBlock Text="Generate Insights" FontSize="13" />

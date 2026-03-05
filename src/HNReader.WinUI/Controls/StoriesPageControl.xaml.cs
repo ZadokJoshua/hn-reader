@@ -7,6 +7,8 @@ using HNReader.Core.Models;
 using HNReader.Core.Viewmodels;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml;
+using Microsoft.UI.Xaml.Media;
+using Microsoft.UI.Xaml.Media.Animation;
 using Windows.ApplicationModel.DataTransfer;
 using CommunityToolkit.WinUI.UI.Controls;
 using Windows.System;
@@ -88,14 +90,51 @@ public sealed partial class StoriesPageControl : UserControl
     private void OpenInsightsPanel()
     {
         _isInsightsPanelOpen = true;
+
+        // Fade in: start transparent, expand column, then animate opacity
+        AiInsightsPanel.Opacity = 0;
         AssistantColumn.Width = new GridLength(InsightsPanelWidth);
+
+        var fadeIn = new DoubleAnimation
+        {
+            From = 0,
+            To = 1,
+            Duration = new Duration(TimeSpan.FromMilliseconds(250)),
+            EasingFunction = new CubicEase { EasingMode = EasingMode.EaseOut }
+        };
+        Storyboard.SetTarget(fadeIn, AiInsightsPanel);
+        Storyboard.SetTargetProperty(fadeIn, "Opacity");
+
+        var sb = new Storyboard();
+        sb.Children.Add(fadeIn);
+        sb.Begin();
+
         AiInsightsButtonText.Text = "Close Insights";
     }
 
     private void CloseInsightsPanel()
     {
         _isInsightsPanelOpen = false;
-        AssistantColumn.Width = new GridLength(0);
+
+        // Fade out: animate opacity to 0, then collapse column
+        var fadeOut = new DoubleAnimation
+        {
+            From = 1,
+            To = 0,
+            Duration = new Duration(TimeSpan.FromMilliseconds(200)),
+            EasingFunction = new CubicEase { EasingMode = EasingMode.EaseIn }
+        };
+        Storyboard.SetTarget(fadeOut, AiInsightsPanel);
+        Storyboard.SetTargetProperty(fadeOut, "Opacity");
+
+        var sb = new Storyboard();
+        sb.Children.Add(fadeOut);
+        sb.Completed += (s, e) =>
+        {
+            AssistantColumn.Width = new GridLength(0);
+        };
+        sb.Begin();
+
         AiInsightsButtonText.Text = "AI Insights";
     }
 
@@ -182,7 +221,15 @@ public sealed partial class StoriesPageControl : UserControl
         {
             if (sender is FrameworkElement fe && fe.DataContext is WebCommentNode node && DataContext is PageViewModel vm)
             {
-                PageViewModel.ToggleWebCommentCollapse(node);
+                var dq = Microsoft.UI.Dispatching.DispatcherQueue.GetForCurrentThread();
+                if (dq != null)
+                {
+                    dq.TryEnqueue(() => PageViewModel.ToggleWebCommentCollapse(node));
+                }
+                else
+                {
+                    node.ToggleCollapsed();
+                }
             }
         }
         catch (Exception ex)
@@ -338,5 +385,128 @@ public sealed partial class StoriesPageControl : UserControl
         {
             vm.IsInsightsPanelOpen = newState;
         }
+    }
+
+    /// <summary>
+    /// Handles link clicks in the AI insight MarkdownTextBlock.
+    /// If the link text starts with "@", it's treated as a comment reference.
+    /// The UI scrolls to the matching comment and highlights it briefly.
+    /// Otherwise, it opens the link in the default browser.
+    /// </summary>
+    private async void OnInsightMarkdownLinkClicked(object sender, LinkClickedEventArgs e)
+    {
+        if (string.IsNullOrWhiteSpace(e.Link)) return;
+
+        // Check if this is a comment author reference (e.g., "@username")
+        var link = e.Link.Trim();
+        if (link.StartsWith("@") || link.StartsWith("%40"))
+        {
+            // Extract author name from the reference
+            var author = link.TrimStart('@').Trim();
+            author = WebUtility.UrlDecode(author);
+            if (author.StartsWith("@")) author = author[1..];
+            
+            await ScrollToCommentByAuthorAsync(author);
+            return;
+        }
+
+        // Regular URL — open in browser
+        await TryLaunchAsync(link);
+    }
+
+    /// <summary>
+    /// Scrolls the comments section to a comment by a specific author
+    /// and highlights it temporarily with a visible border.
+    /// Called from AI insight @author reference links.
+    /// </summary>
+    private async Task ScrollToCommentByAuthorAsync(string author)
+    {
+        if (DataContext is not PageViewModel vm) return;
+
+        // Find the comment by author in the comment tree
+        var targetNode = vm.FindCommentByAuthor(author);
+        if (targetNode == null)
+        {
+            Debug.WriteLine($"Could not find comment by author: {author}");
+            return;
+        }
+
+        // Ensure comments section is visible and loaded
+        if (!vm.AreCommentsVisible)
+        {
+            // Trigger comment loading, then scroll once loaded
+            if (vm.ToggleCommentsCommand.CanExecute(null))
+            {
+                await vm.ToggleCommentsCommand.ExecuteAsync(null);
+            }
+            // Wait a moment for comments to render
+            await Task.Delay(300);
+        }
+
+        // Highlight the comment (ViewModel handles expanding collapsed parents)
+        _ = vm.HighlightCommentAsync(targetNode, 3000);
+
+        // Allow UI to update after expanding collapsed parents
+        await Task.Delay(100);
+
+        // Scroll to the comment within the ScrollViewer
+        ScrollToCommentNode(targetNode);
+    }
+
+    /// <summary>
+    /// Walks the visual tree inside the comments ScrollViewer to find the Border
+    /// with a Tag matching the target comment's ID, then scrolls it into view.
+    /// </summary>
+    private void ScrollToCommentNode(WebCommentNode targetNode)
+    {
+        try
+        {
+            // Find the Border element with the matching CommentId Tag
+            var targetElement = FindCommentBorderInVisualTree(WebCommentsItemsControl, targetNode.CommentId);
+            if (targetElement == null)
+            {
+                Debug.WriteLine($"Could not find visual element for comment ID: {targetNode.CommentId}");
+                return;
+            }
+
+            // Calculate position relative to the ScrollViewer and scroll to it
+            var transform = targetElement.TransformToVisual(CommentsScrollViewer);
+            var position = transform.TransformPoint(new Windows.Foundation.Point(0, 0));
+
+            // Scroll so the comment is near the top of the viewport with some padding
+            var targetOffset = CommentsScrollViewer.VerticalOffset + position.Y - 80;
+            CommentsScrollViewer.ChangeView(null, Math.Max(0, targetOffset), null, false);
+        }
+        catch (Exception ex)
+        {
+            Debug.WriteLine($"Error scrolling to comment: {ex}");
+        }
+    }
+
+    /// <summary>
+    /// Recursively searches the visual tree for a Border element whose Tag property
+    /// matches the given comment ID. Used for scroll-to-comment from AI insights.
+    /// </summary>
+    private static FrameworkElement? FindCommentBorderInVisualTree(DependencyObject? parent, int commentId)
+    {
+        if (parent == null) return null;
+
+        var childCount = VisualTreeHelper.GetChildrenCount(parent);
+        for (int i = 0; i < childCount; i++)
+        {
+            var child = VisualTreeHelper.GetChild(parent, i);
+            
+            // Check if this is the target Border with matching CommentId Tag
+            if (child is Border border && border.Tag is int tagId && tagId == commentId)
+            {
+                return border;
+            }
+
+            // Recurse into children
+            var result = FindCommentBorderInVisualTree(child, commentId);
+            if (result != null) return result;
+        }
+
+        return null;
     }
 }

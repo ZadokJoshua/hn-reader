@@ -57,3 +57,4 @@ Return markdown with these sections in order:
 7. Do NOT include lead-ins like "Now I'll provide..." or any meta commentary.
 8. Use markdown formatting explicitly: bullets (`-`), bold (`**text**`) for emphasis, and blank lines between sections.
 9. Do not wrap the final answer in code fences.
+10. When referencing specific commenters, always use **clickable author links** in the format `[@username](@username)`. This allows the reader to click on the reference and the app will scroll to that commenter's comment. For example: "[@pgbovine](@pgbovine) argues that..." or "As [@dang](@dang) points out...".

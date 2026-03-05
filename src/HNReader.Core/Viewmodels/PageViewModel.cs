@@ -314,11 +314,12 @@ public abstract partial class PageViewModel : BaseViewModel
                 Stories.Add(story);
             }
 
-            // Update favorite status for newly loaded stories
-            foreach (var story in stories)
+            // Update favorite status concurrently for newly loaded stories
+            var favTasks = stories.Select(async story =>
             {
                 story.IsFavorite = await _favoritesService.ExistsAsync(story.Id);
-            }
+            });
+            await Task.WhenAll(favTasks);
 
             ApplySearchFilter();
 
@@ -577,6 +578,7 @@ public abstract partial class PageViewModel : BaseViewModel
     /// Loads comments using the faster web scraping approach.
     /// Uses an in-memory ConcurrentDictionary cache to avoid re-fetching
     /// comments for stories that have already been loaded in this session.
+    /// Comments are added to the UI in batches to keep the UI thread responsive.
     /// </summary>
     private async Task LoadCommentsFromWebAsync(CancellationToken cancellationToken)
     {
@@ -598,8 +600,8 @@ public abstract partial class PageViewModel : BaseViewModel
             cancellationToken.ThrowIfCancellationRequested();
 
             // Build tree on a background thread to avoid blocking the UI.
-            // WebCommentNode constructors call HtmlContentHelper.ToPlainText/ToMarkdown
-            // which perform synchronous HTML parsing for every comment.
+            // WebCommentNode constructors now use HtmlContentHelper.ToMarkdownFast()
+            // which is significantly faster than the ReverseMarkdown path.
             _webCommentRoots = await Task.Run(() => CommentTreeBuilder.BuildTree(webComments), cancellationToken);
 
             cancellationToken.ThrowIfCancellationRequested();
@@ -609,8 +611,53 @@ public abstract partial class PageViewModel : BaseViewModel
 
         cancellationToken.ThrowIfCancellationRequested();
 
-        // Refresh the flattened comment projection so nested replies show correctly.
-        RefreshVisibleWebComments();
+        // Add comments incrementally in batches to avoid blocking the UI thread.
+        // Each batch yields back to the dispatcher so the app stays responsive.
+        await LoadCommentsBatchedAsync(_webCommentRoots, cancellationToken);
+    }
+
+    /// <summary>
+    /// Adds root comment nodes to the observable collection in batches.
+    /// This prevents the UI from freezing when rendering hundreds of comments
+    /// because the XAML layout engine processes each batch between frames.
+    /// </summary>
+    private async Task LoadCommentsBatchedAsync(List<WebCommentNode> roots, CancellationToken cancellationToken)
+    {
+        const int batchSize = 15; // Number of root comments per batch
+
+        if (roots == null || roots.Count == 0)
+        {
+            WebCommentNodes = [];
+            OnPropertyChanged(nameof(ShowWebComments));
+            OnPropertyChanged(nameof(ShowNoCommentsMessage));
+            return;
+        }
+
+        // Start with an empty collection so the UI can begin rendering immediately
+        WebCommentNodes = [];
+        OnPropertyChanged(nameof(ShowWebComments));
+        OnPropertyChanged(nameof(ShowNoCommentsMessage));
+
+        for (int i = 0; i < roots.Count; i += batchSize)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+
+            var end = Math.Min(i + batchSize, roots.Count);
+            for (int j = i; j < end; j++)
+            {
+                WebCommentNodes.Add(roots[j]);
+            }
+
+            // Yield to the UI thread so it can render the batch before adding more.
+            // Task.Delay(1) is sufficient to allow one layout pass.
+            if (end < roots.Count)
+            {
+                await Task.Delay(1, cancellationToken);
+            }
+        }
+
+        OnPropertyChanged(nameof(ShowWebComments));
+        OnPropertyChanged(nameof(ShowNoCommentsMessage));
     }
 
     private void CancelCommentsLoad()
@@ -651,13 +698,98 @@ public abstract partial class PageViewModel : BaseViewModel
             return;
         }
 
-        //var visibleNodes = FlattenVisibleWebComments(_webCommentRoots);
-        //WebCommentNodes = new ObservableCollection<WebCommentNode>(visibleNodes);
-
         WebCommentNodes = new ObservableCollection<WebCommentNode>(_webCommentRoots);
 
         OnPropertyChanged(nameof(ShowWebComments));
         OnPropertyChanged(nameof(ShowNoCommentsMessage));
+    }
+
+    // ── Comment Reference Lookup (for AI Insight scroll-to-comment) ──
+
+    /// <summary>
+    /// Finds a comment node by author name and optional text snippet.
+    /// Used by the UI to scroll to a comment referenced in AI insights.
+    /// Searches depth-first through the entire comment tree.
+    /// </summary>
+    public WebCommentNode? FindCommentByAuthor(string author, string? textSnippet = null)
+    {
+        if (_webCommentRoots == null || string.IsNullOrWhiteSpace(author)) return null;
+        return FindNodeRecursive(_webCommentRoots, author.Trim(), textSnippet?.Trim());
+    }
+
+    private static WebCommentNode? FindNodeRecursive(IEnumerable<WebCommentNode> nodes, string author, string? textSnippet)
+    {
+        foreach (var node in nodes)
+        {
+            if (string.Equals(node.By, author, StringComparison.OrdinalIgnoreCase))
+            {
+                // If a text snippet is provided, match against the comment markdown
+                if (!string.IsNullOrWhiteSpace(textSnippet))
+                {
+                    if (node.MdText != null && node.MdText.Contains(textSnippet, StringComparison.OrdinalIgnoreCase))
+                        return node;
+                }
+                else
+                {
+                    return node; // First match by author
+                }
+            }
+
+            var childResult = FindNodeRecursive(node.Children, author, textSnippet);
+            if (childResult != null) return childResult;
+        }
+        return null;
+    }
+
+    /// <summary>
+    /// Highlights a comment node temporarily (for AI insight reference scrolling).
+    /// Sets IsHighlighted=true, waits, then sets it back to false.
+    /// </summary>
+    public async Task HighlightCommentAsync(WebCommentNode node, int durationMs = 3000)
+    {
+        if (node == null) return;
+
+        // Ensure comments are visible first
+        if (!AreCommentsVisible)
+        {
+            AreCommentsVisible = true;
+        }
+
+        // Ensure parent chain is expanded so the comment is visible
+        EnsureCommentVisible(node);
+
+        node.IsHighlighted = true;
+        await Task.Delay(durationMs);
+        node.IsHighlighted = false;
+    }
+
+    /// <summary>
+    /// Ensures a comment node is visible by expanding any collapsed ancestors.
+    /// </summary>
+    private void EnsureCommentVisible(WebCommentNode target)
+    {
+        if (_webCommentRoots == null) return;
+
+        // Walk the tree to find the path to the target and expand collapsed nodes
+        ExpandPathTo(_webCommentRoots, target);
+    }
+
+    private static bool ExpandPathTo(IEnumerable<WebCommentNode> nodes, WebCommentNode target)
+    {
+        foreach (var node in nodes)
+        {
+            if (ReferenceEquals(node, target))
+                return true;
+
+            if (node.Children.Count > 0 && ExpandPathTo(node.Children, target))
+            {
+                // This node is an ancestor — ensure it's expanded
+                if (node.IsCollapsed)
+                    node.IsCollapsed = false;
+                return true;
+            }
+        }
+        return false;
     }
 
     private static IEnumerable<WebCommentNode> FlattenVisibleWebComments(IEnumerable<WebCommentNode> nodes)
@@ -717,13 +849,17 @@ public abstract partial class PageViewModel : BaseViewModel
 
     /// <summary>
     /// Updates the IsFavorite property for all stories in the list.
+    /// Uses parallel async operations for better performance with many stories.
     /// </summary>
     private async Task UpdateFavoriteStatusForStoriesAsync()
     {
-        foreach (var story in Stories)
+        // Batch all favorite checks concurrently instead of serial awaits.
+        // This is safe because IFavoritesService reads are thread-safe.
+        var tasks = Stories.Select(async story =>
         {
             story.IsFavorite = await _favoritesService.ExistsAsync(story.Id);
-        }
+        });
+        await Task.WhenAll(tasks);
     }
 
     private static bool StoryMatchesFilter(Story story, string term)

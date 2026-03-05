@@ -15,12 +15,21 @@ public class WebCommentNode : INotifyPropertyChanged
     {
         Children = [];
         _depth = comment.Depth;
-        
-        _mdText = HtmlContentHelper.ToMarkdown(comment?.Text);
+        CommentId = comment.Id;
+
+        // Use the fast string-replacement HTML→Markdown path (inspired by EmergeTools approach).
+        // This avoids a full HtmlAgilityPack parse + ReverseMarkdown conversion per comment,
+        // which was the main CPU bottleneck during tree building.
+        _mdText = HtmlContentHelper.ToMarkdownFast(comment?.Text);
 
         By = comment?.By ?? string.Empty;
         TimeAgo = comment?.TimeAgo;
     }
+
+    /// <summary>
+    /// The HN comment ID, used for scroll-to-comment from AI insight references.
+    /// </summary>
+    public int CommentId { get; }
 
     public ObservableCollection<WebCommentNode> Children { get; }
 
@@ -51,6 +60,22 @@ public class WebCommentNode : INotifyPropertyChanged
             _isCollapsed = value;
             OnPropertyChanged();
             OnPropertyChanged(nameof(CollapseIcon));
+        }
+    }
+
+    private bool _isHighlighted;
+    /// <summary>
+    /// Temporarily set to true when an AI insight reference scrolls to this comment.
+    /// The UI binds to this to show a highlight border/background for a few seconds.
+    /// </summary>
+    public bool IsHighlighted
+    {
+        get => _isHighlighted;
+        set
+        {
+            if (_isHighlighted == value) return;
+            _isHighlighted = value;
+            OnPropertyChanged();
         }
     }
 

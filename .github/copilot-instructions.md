@@ -36,7 +36,7 @@ dotnet run --project .\src\HNReader.WinUI\HNReader.WinUI.csproj -r win-x64
 
 ### Run WinUI Application (Debug)
 ```powershell
-dotnet run --project .\src\HNReader.WinUI\HNReader.WinUI.csproj
+dotnet run --project .\src\HNReader.WinUI\HNReader.WinUI.csproj 
 ```
 
 ## Project-Specific Rules

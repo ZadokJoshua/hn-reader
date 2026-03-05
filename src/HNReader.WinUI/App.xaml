@@ -17,6 +17,8 @@
             <converters:DepthToVisibilityConverter x:Key="DepthToVisibilityConverter" />
             <converters:RelativeTimeConverter x:Key="RelativeTimeConverter" />
             <converters:UriToImageSourceConverter x:Key="UriToImageSourceConverter" />
+            <converters:HighlightBorderBrushConverter x:Key="HighlightBorderBrushConverter" />
+            <converters:HighlightBorderThicknessConverter x:Key="HighlightBorderThicknessConverter" />
         </ResourceDictionary>
     </Application.Resources>
 </Application>
