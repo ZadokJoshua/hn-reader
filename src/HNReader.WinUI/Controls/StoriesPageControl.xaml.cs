@@ -94,6 +94,11 @@ public sealed partial class StoriesPageControl : UserControl
         // Fade in: start transparent, expand column, then animate opacity
         AiInsightsPanel.Opacity = 0;
         AssistantColumn.Width = new GridLength(InsightsPanelWidth);
+        AssistantColumn.MinWidth = 280;
+
+        // Show the splitter between detail and insights
+        SplitterColumn.Width = GridLength.Auto;
+        InsightsSplitter.Visibility = Visibility.Visible;
 
         var fadeIn = new DoubleAnimation
         {
@@ -132,6 +137,11 @@ public sealed partial class StoriesPageControl : UserControl
         sb.Completed += (s, e) =>
         {
             AssistantColumn.Width = new GridLength(0);
+            AssistantColumn.MinWidth = 0;
+
+            // Hide the splitter when insights panel is collapsed
+            SplitterColumn.Width = new GridLength(0);
+            InsightsSplitter.Visibility = Visibility.Collapsed;
         };
         sb.Begin();
 
