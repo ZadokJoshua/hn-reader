@@ -15,6 +15,7 @@
             <converters:BoolToVisibilityConverter x:Key="BoolToVisibilityConverter" />
             <converters:BoolToCollapseTextConverter x:Key="BoolToCollapseTextConverter" />
             <converters:DepthToVisibilityConverter x:Key="DepthToVisibilityConverter" />
+            <converters:DepthToMarginConverter x:Key="DepthToMarginConverter" />
             <converters:RelativeTimeConverter x:Key="RelativeTimeConverter" />
             <converters:UriToImageSourceConverter x:Key="UriToImageSourceConverter" />
             <converters:HighlightBorderBrushConverter x:Key="HighlightBorderBrushConverter" />

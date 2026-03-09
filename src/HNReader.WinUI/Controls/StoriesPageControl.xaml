@@ -25,10 +25,10 @@
 
         <Style x:Key="CommentCardBorderStyle" TargetType="Border">
             <Setter Property="Padding" Value="12" />
-            <Setter Property="Margin" Value="0,4" />
-            <Setter Property="Background" Value="{ThemeResource LayerFillColorDefaultBrush}" />
+            <Setter Property="Margin" Value="0,6,0,2" />
+            <Setter Property="Background" Value="{ThemeResource CardBackgroundFillColorDefaultBrush}" />
             <Setter Property="CornerRadius" Value="8" />
-            <Setter Property="BorderBrush" Value="{ThemeResource DividerStrokeColorDefaultBrush}" />
+            <Setter Property="BorderBrush" Value="{ThemeResource CardStrokeColorDefaultBrush}" />
             <Setter Property="BorderThickness" Value="1" />
         </Style>
 
@@ -58,9 +58,9 @@
 
         <!-- Recursive Web Comment Template (Faster HTML-parsed comments) -->
         <DataTemplate x:Key="WebCommentTemplate" x:DataType="models:WebCommentNode">
-            <Grid>
+            <Grid Margin="{Binding Depth, Converter={StaticResource DepthToMarginConverter}}">
                 <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="16" />
+                    <ColumnDefinition Width="20" />
                     <ColumnDefinition Width="*" />
                 </Grid.ColumnDefinitions>
 
@@ -68,9 +68,11 @@
                 <Border 
                     Grid.Column="0"
                     Width="2"
-                    Background="{StaticResource HNAccentBrush}"
+                    Background="{ThemeResource CardStrokeColorDefaultBrush}"
                     HorizontalAlignment="Center"
                     VerticalAlignment="Stretch"
+                    CornerRadius="1"
+                    Opacity="0.85"
                     Visibility="{Binding Depth, Converter={StaticResource DepthToVisibilityConverter}}" />
 
                 <!-- Comment + Children Container -->
@@ -628,19 +630,12 @@
                                     </StackPanel>
                                 </Border>
 
-                                <!-- Web Comments List with entrance transitions for smooth loading -->
-                                <ItemsControl
+                                                <!-- Web Comments List (stable rendering for deep recursive trees) -->
+                                                <ItemsControl
                                     x:Name="WebCommentsItemsControl"
                                     ItemsSource="{Binding WebCommentNodes}"
                                     ItemTemplate="{StaticResource WebCommentTemplate}"
-                                    Visibility="{Binding ShowWebComments, Converter={StaticResource BoolToVisibilityConverter}}">
-                                    <ItemsControl.ItemContainerTransitions>
-                                        <TransitionCollection>
-                                            <AddDeleteThemeTransition />
-                                            <EntranceThemeTransition IsStaggeringEnabled="True" FromVerticalOffset="20" />
-                                        </TransitionCollection>
-                                    </ItemsControl.ItemContainerTransitions>
-                                </ItemsControl>
+                                                    Visibility="{Binding ShowWebComments, Converter={StaticResource BoolToVisibilityConverter}}" />
 
                                 <!-- No Comments -->
                                 <StackPanel

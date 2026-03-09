@@ -9,7 +9,7 @@ public static class HtmlContentHelper
     // Precompiled regex for extracting <a> tags — used by the fast path.
     // HN comments only contain simple <a href="...">text</a> links.
     private static readonly Regex AnchorTagRegex = new(
-        @"<a\s[^>]*href\s*=\s*""([^""]*)""\s*[^>]*>(.*?)</a>",
+        @"<a\s[^>]*href\s*=\s*(?:\""(?<href1>[^\""#<>\s][^\""<>]*)\""|'(?<href2>[^'#<>\s][^'<>]*)'|(?<href3>[^\s>]+))[^>]*>(?<text>.*?)</a>",
         RegexOptions.Compiled | RegexOptions.IgnoreCase | RegexOptions.Singleline);
 
     public static string? ToPlainText(string? html)
@@ -37,11 +37,21 @@ public static class HtmlContentHelper
         // Phase 1: Convert <a href="...">text</a> → [text](href)
         processed = AnchorTagRegex.Replace(processed, match =>
         {
-            var href = match.Groups[1].Value;
-            var text = match.Groups[2].Value.Trim();
-            // If the display text IS the URL, just use the URL as a bare link
-            if (string.Equals(text, href, StringComparison.OrdinalIgnoreCase))
-                return $"[{text}]({href})";
+            var href = match.Groups["href1"].Value;
+            if (string.IsNullOrWhiteSpace(href)) href = match.Groups["href2"].Value;
+            if (string.IsNullOrWhiteSpace(href)) href = match.Groups["href3"].Value;
+
+            if (string.IsNullOrWhiteSpace(href))
+            {
+                return match.Groups["text"].Value;
+            }
+
+            var text = match.Groups["text"].Value.Trim();
+            if (string.IsNullOrWhiteSpace(text))
+            {
+                text = href;
+            }
+
             return $"[{text}]({href})";
         });
 
