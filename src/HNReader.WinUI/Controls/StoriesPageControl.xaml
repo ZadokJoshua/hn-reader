@@ -151,7 +151,6 @@
     <Grid Background="{ThemeResource LayerFillColorDefaultBrush}">
         <Grid.ColumnDefinitions>
             <ColumnDefinition Width="400" MinWidth="320" />
-            <ColumnDefinition Width="Auto" />
             <ColumnDefinition Width="*" MinWidth="350" />
             <ColumnDefinition x:Name="SplitterColumn" Width="0" />
             <ColumnDefinition x:Name="AssistantColumn" Width="0" MinWidth="0" />
@@ -223,11 +222,12 @@
                         <DataTemplate x:DataType="models:Story">
                             <controls:StoryListItemControl
                                 Title="{x:Bind Title}"
-                                Score="{Binding DisplayScore}"
-                                Descendants="{Binding CommentCount}"
-                                TimeAgo="{Binding TimeAgo}"
-                                By="{Binding By}"
-                                IsFavorite="{Binding IsFavorite}" />
+                                Score="{x:Bind DisplayScore}"
+                                Descendants="{x:Bind CommentCount}"
+                                TimeAgo="{x:Bind TimeAgo}"
+                                By="{x:Bind By}"
+                                IsFavorite="{x:Bind IsFavorite}" 
+                                RootDomain="{x:Bind RootDomain}" />
                         </DataTemplate>
                     </ListView.ItemTemplate>
                     <ListView.Footer>
@@ -347,25 +347,8 @@
             </Grid>
         </Grid>
 
-        <!-- GridSplitter between Stories List and Detail Panel -->
-        <toolkit:GridSplitter
-            Grid.Column="1"
-            Width="8"
-            Background="Transparent"
-            HorizontalAlignment="Center"
-            ResizeBehavior="PreviousAndNext"
-            ResizeDirection="Columns"
-            CursorBehavior="ChangeOnSplitterHover"
-            Foreground="{ThemeResource DividerStrokeColorDefaultBrush}">
-            <toolkit:GridSplitter.Element>
-                <Grid>
-                    <Rectangle Width="1" Fill="{ThemeResource DividerStrokeColorDefaultBrush}" HorizontalAlignment="Center" />
-                </Grid>
-            </toolkit:GridSplitter.Element>
-        </toolkit:GridSplitter>
-
         <!-- Detail Panel -->
-        <Grid Grid.Column="2" Background="{ThemeResource LayerFillColorAltBrush}">
+        <Grid Grid.Column="1" Background="{ThemeResource LayerFillColorAltBrush}">
             <!-- Empty State -->
             <StackPanel 
                 HorizontalAlignment="Center" 
@@ -696,8 +679,8 @@
         <!-- GridSplitter between Detail Panel and AI Insights Panel (only visible when insights open) -->
         <toolkit:GridSplitter
             x:Name="InsightsSplitter"
-            Grid.Column="3"
-            Width="8"
+            Grid.Column="2"
+            Width="1"
             Background="Transparent"
             HorizontalAlignment="Center"
             ResizeBehavior="PreviousAndNext"
@@ -713,7 +696,7 @@
         </toolkit:GridSplitter>
 
         <!-- AI Insights Panel (Slides in from right) -->
-        <Grid x:Name="AiInsightsPanel" Grid.Column="4" Background="{ThemeResource LayerFillColorAltBrush}" BorderBrush="{ThemeResource DividerStrokeColorDefaultBrush}" BorderThickness="1,0,0,0">
+        <Grid x:Name="AiInsightsPanel" Grid.Column="3" Background="{ThemeResource LayerFillColorAltBrush}" BorderBrush="{ThemeResource DividerStrokeColorDefaultBrush}" BorderThickness="1,0,0,0">
             <Grid.RowDefinitions>
                 <RowDefinition Height="Auto" />
                 <RowDefinition Height="*" />

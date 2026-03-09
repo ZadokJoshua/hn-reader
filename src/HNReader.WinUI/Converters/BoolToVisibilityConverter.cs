@@ -42,10 +42,7 @@ public partial class BoolToVisibilityConverter : IValueConverter
 
         var isInverse = parameter is string param && param.Equals("Inverse", StringComparison.OrdinalIgnoreCase);
 
-        if (isInverse)
-        {
-            isVisible = !isVisible;
-        }
+        if (isInverse) isVisible = !isVisible;
 
         return isVisible ? Visibility.Visible : Visibility.Collapsed;
     }
