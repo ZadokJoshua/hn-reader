@@ -17,9 +17,6 @@ public class Story : BaseHNItem, INotifyPropertyChanged
     public string? Text { get; set; }
 
     [JsonIgnore]
-    public string? PlainText => HtmlContentHelper.ToPlainText(Text);
-
-    [JsonIgnore]
     public string? MarkdownText => HtmlContentHelper.ToMarkdown(Text);
 
     [JsonPropertyName("score")]

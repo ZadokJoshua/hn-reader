@@ -6,14 +6,6 @@ namespace HNReader.Core.Helpers;
 
 public static class HtmlContentHelper
 {
-    // Full ReverseMarkdown converter kept as fallback for complex/non-comment HTML
-    private static readonly ReverseMarkdown.Converter MarkdownConverter = new(new ReverseMarkdown.Config
-    {
-        GithubFlavored = true,
-        UnknownTags = ReverseMarkdown.Config.UnknownTagsOption.Bypass,
-        SmartHrefHandling = true
-    });
-
     // Precompiled regex for extracting <a> tags — used by the fast path.
     // HN comments only contain simple <a href="...">text</a> links.
     private static readonly Regex AnchorTagRegex = new(
@@ -39,7 +31,7 @@ public static class HtmlContentHelper
     /// This avoids full DOM parsing + ReverseMarkdown for every comment,
     /// providing significantly faster conversion for typical HN comment HTML.
     /// </summary>
-    public static string? ToMarkdownFast(string? html)
+    public static string? ToMarkdown(string? html)
     {
         if (string.IsNullOrWhiteSpace(html)) return html;
 
@@ -82,25 +74,5 @@ public static class HtmlContentHelper
         processed = WebUtility.HtmlDecode(processed);
 
         return processed.Trim();
-    }
-
-    /// <summary>
-    /// Full-fidelity HTML-to-Markdown conversion using ReverseMarkdown.
-    /// Use for story body text or complex HTML. For HN comments, prefer ToMarkdownFast().
-    /// </summary>
-    public static string? ToMarkdown(string? html)
-    {
-        if (string.IsNullOrWhiteSpace(html)) return html;
-
-        var doc = new HtmlDocument();
-        doc.LoadHtml(html);
-        var innerHtml = doc.DocumentNode.InnerHtml ?? html;
-        var markdown = MarkdownConverter.Convert(innerHtml);
-
-        if (string.IsNullOrWhiteSpace(markdown)) return ToPlainText(html);
-
-        markdown = WebUtility.HtmlDecode(markdown);
-
-        return markdown.Trim();
     }
 }
