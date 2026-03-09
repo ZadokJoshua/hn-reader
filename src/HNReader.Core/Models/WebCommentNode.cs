@@ -17,9 +17,7 @@ public class WebCommentNode : INotifyPropertyChanged
         _depth = comment.Depth;
         CommentId = comment.Id;
 
-        // Use the fast string-replacement HTML→Markdown path (inspired by EmergeTools approach).
-        // This avoids a full HtmlAgilityPack parse + ReverseMarkdown conversion per comment,
-        // which was the main CPU bottleneck during tree building.
+        // Use the fast string-replacement HTML→Markdown path.
         _mdText = HtmlContentHelper.ToMarkdown(comment?.Text);
 
         By = comment?.By ?? string.Empty;

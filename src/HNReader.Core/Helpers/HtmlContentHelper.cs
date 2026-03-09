@@ -24,12 +24,9 @@ public static class HtmlContentHelper
 
     /// <summary>
     /// Converts HN comment HTML to Markdown using a fast string-replacement approach.
-    /// Inspired by the EmergeTools/hackernews app rendering pipeline:
     ///   1. Extract links via regex → markdown link syntax
     ///   2. Decode HTML entities
     ///   3. Convert remaining HTML tags to markdown equivalents
-    /// This avoids full DOM parsing + ReverseMarkdown for every comment,
-    /// providing significantly faster conversion for typical HN comment HTML.
     /// </summary>
     public static string? ToMarkdown(string? html)
     {
