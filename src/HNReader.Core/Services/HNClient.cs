@@ -1,4 +1,5 @@
-﻿using HNReader.Core.Enums;
+﻿using System.Collections.Concurrent;
+using HNReader.Core.Enums;
 using HNReader.Core.Models;
 using static HNReader.Core.Helpers.CoreHelper;
 
@@ -6,7 +7,11 @@ namespace HNReader.Core.Services;
 
 public class HNClient(HttpClient httpClient)
 {
-    private Dictionary<StoryType, List<int>>? _storyIdsCache = [];
+    private readonly ConcurrentDictionary<StoryType, StoryIdsCacheEntry> _storyIdsCache = [];
+    private readonly TimeSpan _storyIdsCacheTtl = TimeSpan.FromMinutes(5);
+    private readonly SemaphoreSlim _storyRequestSemaphore = new(initialCount: 5, maxCount: 5);
+
+    private sealed record StoryIdsCacheEntry(List<int> Ids, DateTimeOffset CachedAtUtc);
 
     /// <summary>
     /// Fetch a single Hacker News item by ID.
@@ -16,16 +21,30 @@ public class HNClient(HttpClient httpClient)
     /// <returns></returns>
     private async Task<List<int>> GetStoryIdsAsync(StoryType itemType, bool forceRefresh = false)
     {
-        if (!forceRefresh && _storyIdsCache != null && _storyIdsCache.TryGetValue(itemType, out var cachedIds))
-            return cachedIds;
+        if (!forceRefresh && _storyIdsCache.TryGetValue(itemType, out var cached) && DateTimeOffset.UtcNow - cached.CachedAtUtc < _storyIdsCacheTtl)
+        {
+            return cached.Ids;
+        }
 
         var json = await httpClient.GetStringAsync(itemType.GetFeedEndpoint());
         var ids = Deserialize<List<int>>(json) ?? [];
 
-        _storyIdsCache ??= [];
-        _storyIdsCache[itemType] = ids;
+        _storyIdsCache[itemType] = new StoryIdsCacheEntry(ids, DateTimeOffset.UtcNow);
 
         return ids;
+    }
+
+    private async Task<Story?> GetStoryWithLimitAsync(int id)
+    {
+        await _storyRequestSemaphore.WaitAsync();
+        try
+        {
+            return await GetItemAsync<Story>(id);
+        }
+        finally
+        {
+            _storyRequestSemaphore.Release();
+        }
     }
 
     /// <summary>
@@ -53,13 +72,13 @@ public class HNClient(HttpClient httpClient)
         var pagedIds = ids.Skip(offset).Take(limit);
 
         // Fetch concurrently
-        var tasks = pagedIds.Select(GetItemAsync<Story>);
+        var tasks = pagedIds.Select(GetStoryWithLimitAsync);
         var results = await Task.WhenAll(tasks);
 
         return [.. results.OfType<Story>()];
     }
 
-    public void ClearCache() => _storyIdsCache?.Clear();
+    public void ClearCache() => _storyIdsCache.Clear();
 
     private static long GetUnixTimestampSeconds24HoursAgo() => DateTimeOffset.UtcNow.AddHours(-24).ToUnixTimeSeconds();
 

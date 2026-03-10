@@ -16,6 +16,16 @@ public class NavigationService(PageFactory pageFactory)
     {
         if (_frame == null) return;
 
+        if (_frame.Content is Page previousPage)
+        {
+            if (previousPage.DataContext is IDisposable disposableViewModel)
+            {
+                disposableViewModel.Dispose();
+            }
+
+            previousPage.DataContext = null;
+        }
+
         var pageInstance = pageFactory.GetPage(page);
         _frame.Content = pageInstance;
 

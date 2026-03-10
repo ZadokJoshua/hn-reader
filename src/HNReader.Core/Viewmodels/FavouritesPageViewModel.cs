@@ -6,8 +6,10 @@ using HNReader.Core.Services;
 
 namespace HNReader.Core.Viewmodels;
 
-public partial class FavouritesPageViewModel : PageViewModel
+public partial class FavouritesPageViewModel : PageViewModel, IDisposable
 {
+    private bool _isDisposed;
+
     [ObservableProperty]
     private bool _showFavoritesEmptyState;
 
@@ -84,11 +86,35 @@ public partial class FavouritesPageViewModel : PageViewModel
 
     private async void OnFavoritesChanged(object? sender, EventArgs e)
     {
-        await PopulateListAsync();
+        if (_isDisposed)
+        {
+            return;
+        }
+
+        try
+        {
+            await PopulateListAsync();
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"Error refreshing favourites after change event: {ex}");
+        }
     }
 
     private void UpdateEmptyState()
     {
         ShowFavoritesEmptyState = !IsLoading && !HasError && Stories.Count == 0;
+    }
+
+    public void Dispose()
+    {
+        if (_isDisposed)
+        {
+            return;
+        }
+
+        FavoritesService.FavoritesChanged -= OnFavoritesChanged;
+        _isDisposed = true;
+        GC.SuppressFinalize(this);
     }
 }

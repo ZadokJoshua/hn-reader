@@ -179,18 +179,33 @@ public sealed partial class StoriesPageControl : UserControl
         // Currently the Load More button is always visible when there are more items
     }
 
+    private static async Task ExecuteUiActionSafelyAsync(Func<Task> action, string operationName)
+    {
+        try
+        {
+            await action();
+        }
+        catch (Exception ex)
+        {
+            Debug.WriteLine($"Error during {operationName}: {ex}");
+        }
+    }
+
     private async void OnLoadMoreClicked(object sender, RoutedEventArgs e)
     {
-        if (DataContext is not PageViewModel vm) return;
-        if (!vm.LoadMoreStoriesCommand.CanExecute(null)) return;
+        await ExecuteUiActionSafelyAsync(async () =>
+        {
+            if (DataContext is not PageViewModel vm) return;
+            if (!vm.LoadMoreStoriesCommand.CanExecute(null)) return;
 
-        // Store current count before loading
-        _previousStoryCount = vm.Stories.Count;
+            // Store current count before loading
+            _previousStoryCount = vm.Stories.Count;
 
-        await vm.LoadMoreStoriesCommand.ExecuteAsync(null);
+            await vm.LoadMoreStoriesCommand.ExecuteAsync(null);
 
-        // After loading, scroll to the first new item
-        await ScrollToFirstNewItem();
+            // After loading, scroll to the first new item
+            await ScrollToFirstNewItem();
+        }, "load more stories");
     }
 
     private async Task ScrollToFirstNewItem()
@@ -251,7 +266,7 @@ public sealed partial class StoriesPageControl : UserControl
 
     private async void OnCopyLinkClicked(object sender, RoutedEventArgs e)
     {
-        try
+        await ExecuteUiActionSafelyAsync(async () =>
         {
             if (DataContext is not PageViewModel vm || vm.SelectedStory?.Url == null) return;
 
@@ -260,16 +275,12 @@ public sealed partial class StoriesPageControl : UserControl
             Clipboard.SetContent(dataPackage);
 
             await vm.ShowCopyFeedbackAsync("Link copied!");
-        }
-        catch (Exception ex)
-        {
-            Debug.WriteLine($"Error copying link: {ex}");
-        }
+        }, "copying link");
     }
 
     private async void OnCopyTitleClicked(object sender, RoutedEventArgs e)
     {
-        try
+        await ExecuteUiActionSafelyAsync(async () =>
         {
             if (DataContext is not PageViewModel vm || vm.SelectedStory?.Title == null) return;
 
@@ -278,11 +289,7 @@ public sealed partial class StoriesPageControl : UserControl
             Clipboard.SetContent(dataPackage);
 
             await vm.ShowCopyFeedbackAsync("Title copied!");
-        }
-        catch (Exception ex)
-        {
-            Debug.WriteLine($"Error copying title: {ex}");
-        }
+        }, "copying title");
     }
 
     private void OnShareClicked(object sender, RoutedEventArgs e)
@@ -317,17 +324,13 @@ public sealed partial class StoriesPageControl : UserControl
 
     private async void OnViewOnHnClicked(object sender, RoutedEventArgs e)
     {
-        try
+        await ExecuteUiActionSafelyAsync(async () =>
         {
             if (DataContext is not PageViewModel vm || vm.SelectedStory == null) return;
 
             var hnUrl = $"https://news.ycombinator.com/item?id={vm.SelectedStory.Id}";
             await Launcher.LaunchUriAsync(new Uri(hnUrl));
-        }
-        catch (Exception ex)
-        {
-            Debug.WriteLine($"Error opening HN: {ex}");
-        }
+        }, "opening story on Hacker News");
     }
 
     private static IntPtr GetWindowHandle()
@@ -342,12 +345,18 @@ public sealed partial class StoriesPageControl : UserControl
 
     private async void OnCommentMarkdownLinkClicked(object sender, LinkClickedEventArgs e)
     {
-        await TryLaunchAsync(e.Link);
+        await ExecuteUiActionSafelyAsync(async () =>
+        {
+            await TryLaunchAsync(e.Link);
+        }, "opening comment link");
     }
 
     private async void OnStoryMarkdownLinkClicked(object sender, LinkClickedEventArgs e)
     {
-        await TryLaunchAsync(e.Link);
+        await ExecuteUiActionSafelyAsync(async () =>
+        {
+            await TryLaunchAsync(e.Link);
+        }, "opening story link");
     }
 
     private static async Task<bool> TryLaunchAsync(string? link)
@@ -404,36 +413,39 @@ public sealed partial class StoriesPageControl : UserControl
     /// </summary>
     private async void OnInsightMarkdownLinkClicked(object sender, LinkClickedEventArgs e)
     {
-        if (string.IsNullOrWhiteSpace(e.Link)) return;
-
-        var link = e.Link.Trim();
-
-        // Check for comment reference links (e.g., "https://hn-comment/12345")
-        const string commentProtocol = "https://hn-comment/";
-        if (link.StartsWith(commentProtocol, StringComparison.OrdinalIgnoreCase))
+        await ExecuteUiActionSafelyAsync(async () =>
         {
-            var idString = link[commentProtocol.Length..].TrimEnd('/');
-            if (int.TryParse(idString, out var commentId) && commentId > 0)
+            if (string.IsNullOrWhiteSpace(e.Link)) return;
+
+            var link = e.Link.Trim();
+
+            // Check for comment reference links (e.g., "https://hn-comment/12345")
+            const string commentProtocol = "https://hn-comment/";
+            if (link.StartsWith(commentProtocol, StringComparison.OrdinalIgnoreCase))
             {
-                await ScrollToCommentByIdAsync(commentId);
+                var idString = link[commentProtocol.Length..].TrimEnd('/');
+                if (int.TryParse(idString, out var commentId) && commentId > 0)
+                {
+                    await ScrollToCommentByIdAsync(commentId);
+                    return;
+                }
+                Debug.WriteLine($"Invalid comment ID in link: {link}");
                 return;
             }
-            Debug.WriteLine($"Invalid comment ID in link: {link}");
-            return;
-        }
 
-        // Fallback: check for legacy @author format (e.g., "@username")
-        if (link.StartsWith("@") || link.StartsWith("%40"))
-        {
-            var author = link.TrimStart('@').Trim();
-            author = WebUtility.UrlDecode(author);
-            if (author.StartsWith("@")) author = author[1..];
-            await ScrollToCommentByAuthorAsync(author);
-            return;
-        }
+            // Fallback: check for legacy @author format (e.g., "@username")
+            if (link.StartsWith("@") || link.StartsWith("%40"))
+            {
+                var author = link.TrimStart('@').Trim();
+                author = WebUtility.UrlDecode(author);
+                if (author.StartsWith("@")) author = author[1..];
+                await ScrollToCommentByAuthorAsync(author);
+                return;
+            }
 
-        // Regular URL — open in browser
-        await TryLaunchAsync(link);
+            // Regular URL - open in browser
+            await TryLaunchAsync(link);
+        }, "handling insight link click");
     }
 
     /// <summary>

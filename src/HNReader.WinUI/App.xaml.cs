@@ -136,12 +136,12 @@ public partial class App : Application
         services.AddSingleton<CopilotFunctions>();
         services.AddSingleton<CopilotCliService>();
 
-        services.AddSingleton<TopPageViewModel>();
-        services.AddSingleton<NewPageViewModel>();
-        services.AddSingleton<FavouritesPageViewModel>();
-        services.AddSingleton<BestPageViewModel>();
-        services.AddSingleton<ShowPageViewModel>();
-        services.AddSingleton<AskPageViewModel>();
+        services.AddTransient<TopPageViewModel>();
+        services.AddTransient<NewPageViewModel>();
+        services.AddTransient<FavouritesPageViewModel>();
+        services.AddTransient<BestPageViewModel>();
+        services.AddTransient<ShowPageViewModel>();
+        services.AddTransient<AskPageViewModel>();
         services.AddSingleton(sp => new NewsDigestViewModel(
             sp.GetRequiredService<ISettingsService>(),
             sp.GetRequiredService<CopilotCliService>(),
