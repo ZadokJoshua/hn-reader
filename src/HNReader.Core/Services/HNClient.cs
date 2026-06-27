@@ -16,9 +16,6 @@ public class HNClient(HttpClient httpClient)
     /// <summary>
     /// Fetch a single Hacker News item by ID.
     /// </summary>
-    /// <param name="itemType"></param>
-    /// <param name="forceRefresh"></param>
-    /// <returns></returns>
     private async Task<List<int>> GetStoryIdsAsync(StoryType itemType, bool forceRefresh = false)
     {
         if (!forceRefresh && _storyIdsCache.TryGetValue(itemType, out var cached) && DateTimeOffset.UtcNow - cached.CachedAtUtc < _storyIdsCacheTtl)
@@ -26,7 +23,7 @@ public class HNClient(HttpClient httpClient)
             return cached.Ids;
         }
 
-        var json = await httpClient.GetStringAsync(itemType.GetFeedEndpoint());
+        var json = await httpClient.GetStringAsync(itemType.GetFeedEndpoint()).ConfigureAwait(false);
         var ids = Deserialize<List<int>>(json) ?? [];
 
         _storyIdsCache[itemType] = new StoryIdsCacheEntry(ids, DateTimeOffset.UtcNow);
@@ -36,10 +33,10 @@ public class HNClient(HttpClient httpClient)
 
     private async Task<Story?> GetStoryWithLimitAsync(int id)
     {
-        await _storyRequestSemaphore.WaitAsync();
+        await _storyRequestSemaphore.WaitAsync().ConfigureAwait(false);
         try
         {
-            return await GetItemAsync<Story>(id);
+            return await GetItemAsync<Story>(id).ConfigureAwait(false);
         }
         finally
         {
@@ -50,45 +47,27 @@ public class HNClient(HttpClient httpClient)
     /// <summary>
     /// Fetch single item by ID
     /// </summary>
-    /// <param name="id"></param>
-    /// <returns></returns>
     public async Task<T?> GetItemAsync<T>(int id) where T : BaseHNItem
     {
-        var json = await httpClient.GetStringAsync($"item/{id}.json");
+        var json = await httpClient.GetStringAsync($"item/{id}.json").ConfigureAwait(false);
         return Deserialize<T>(json);
     }
 
     /// <summary>
     /// Fetch a list of stories (default: topstories).
     /// </summary>
-    /// <param name="itemType"></param>
-    /// <param name="limit"></param>
-    /// <param name="offset"></param>
-    /// <returns></returns>
     public async Task<List<Story>> GetStoriesAsync(StoryType itemType = StoryType.Top, int limit = 20, int offset = 0)
     {
         var forceRefresh = offset == 0; // Refresh cache on first page
-        var ids = await GetStoryIdsAsync(itemType, forceRefresh);
+        var ids = await GetStoryIdsAsync(itemType, forceRefresh).ConfigureAwait(false);
         var pagedIds = ids.Skip(offset).Take(limit);
 
         // Fetch concurrently
         var tasks = pagedIds.Select(GetStoryWithLimitAsync);
-        var results = await Task.WhenAll(tasks);
+        var results = await Task.WhenAll(tasks).ConfigureAwait(false);
 
         return [.. results.OfType<Story>()];
     }
 
     public void ClearCache() => _storyIdsCache.Clear();
-
-    private static long GetUnixTimestampSeconds24HoursAgo() => DateTimeOffset.UtcNow.AddHours(-24).ToUnixTimeSeconds();
-
-    public async Task<HNSearchResult> GetStoriesFromLast24HoursAsync() 
-    { 
-        long since = GetUnixTimestampSeconds24HoursAgo();
-        int totalHits = 50; // Max hits per page
-        string url = $"https://hn.algolia.com/api/v1/search?tags=story&numericFilters=created_at_i>{since}&hitsPerPage={totalHits}";
-        // Url with points filter example: $"https://hn.algolia.com/api/v1/search?tags=story&numericFilters=created_at_i>{since},points>100&hitsPerPage={totalHits}";
-        var json = await httpClient.GetStringAsync(url);
-        return Deserialize<HNSearchResult>(json) ?? new HNSearchResult();
-    }
 }

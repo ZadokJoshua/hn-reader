@@ -1,3 +1,4 @@
+using HNReader.Core.Helpers;
 using HNReader.Core.Interfaces;
 using HNReader.Core.Models;
 using LiteDB;
@@ -72,6 +73,85 @@ public class FavoritesService : IFavoritesService, IDisposable
             .Select(s => s.Id)
             .ToList();
         return Task.FromResult(ids);
+    }
+
+    public async Task<int> ExportToFileAsync(string filePath)
+    {
+        if (string.IsNullOrWhiteSpace(filePath))
+        {
+            throw new ArgumentException("File path cannot be null or empty", nameof(filePath));
+        }
+
+        var stories = await GetAllAsync().ConfigureAwait(false);
+
+        // Strip runtime-only fields so the file is portable
+        var exportable = stories.Select(CloneForExport).ToList();
+        var json = System.Text.Json.JsonSerializer.Serialize(exportable, CoreHelper.JsonSerializerOptions);
+
+        var directory = Path.GetDirectoryName(filePath);
+        if (!string.IsNullOrEmpty(directory))
+        {
+            Directory.CreateDirectory(directory);
+        }
+
+        await File.WriteAllTextAsync(filePath, json).ConfigureAwait(false);
+        return exportable.Count;
+    }
+
+    public async Task<int> ImportFromFileAsync(string filePath)
+    {
+        if (string.IsNullOrWhiteSpace(filePath))
+        {
+            throw new ArgumentException("File path cannot be null or empty", nameof(filePath));
+        }
+
+        if (!File.Exists(filePath))
+        {
+            throw new FileNotFoundException("Import file not found.", filePath);
+        }
+
+        var json = await File.ReadAllTextAsync(filePath).ConfigureAwait(false);
+        if (string.IsNullOrWhiteSpace(json))
+        {
+            return 0;
+        }
+
+        var stories = System.Text.Json.JsonSerializer.Deserialize<List<Story>>(json);
+        if (stories == null || stories.Count == 0)
+        {
+            return 0;
+        }
+
+        var imported = 0;
+        foreach (var story in stories)
+        {
+            if (story == null || story.Id == 0) continue;
+            _collection.Upsert(story);
+            imported++;
+        }
+
+        if (imported > 0) OnFavoritesChanged();
+        return imported;
+    }
+
+    private static Story CloneForExport(Story story)
+    {
+        // Don't carry transient state like IsFavorite into the exported file.
+        return new Story
+        {
+            Id = story.Id,
+            Deleted = story.Deleted,
+            Type = story.Type,
+            By = story.By,
+            Time = story.Time,
+            Dead = story.Dead,
+            Title = story.Title,
+            Url = story.Url,
+            Text = story.Text,
+            Score = story.Score,
+            Kids = story.Kids,
+            Descendants = story.Descendants
+        };
     }
 
     private void OnFavoritesChanged() => FavoritesChanged?.Invoke(this, EventArgs.Empty);

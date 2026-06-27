@@ -17,21 +17,27 @@ public class WebCommentNode : INotifyPropertyChanged
         _depth = comment.Depth;
         CommentId = comment.Id;
 
-        // Use the fast string-replacement HTML→Markdown path.
-        _mdText = HtmlContentHelper.ToMarkdown(comment?.Text);
+        // Defer HTML→Markdown conversion until the comment is actually rendered.
+        // For long threads this avoids running the regex on hundreds of comments
+        // that are collapsed or off-screen — the Lazy<string> only fires on first
+        // access of MdText (typically when the MarkdownTextBlock is realized).
+        _mdTextLazy = new Lazy<string?>(
+            () => HtmlContentHelper.ToMarkdown(comment?.Text),
+            LazyThreadSafetyMode.PublicationOnly);
 
         By = comment?.By ?? string.Empty;
         TimeAgo = comment?.TimeAgo;
+        _time = comment?.Time;
     }
 
     /// <summary>
-    /// The HN comment ID, used for scroll-to-comment from AI insight references.
+    /// The HN comment ID.
     /// </summary>
     public int CommentId { get; }
 
     public ObservableCollection<WebCommentNode> Children { get; }
 
-    private readonly string? _mdText;
+    private readonly Lazy<string?> _mdTextLazy;
 
     private int _depth;
     public int Depth
@@ -63,7 +69,7 @@ public class WebCommentNode : INotifyPropertyChanged
 
     private bool _isHighlighted;
     /// <summary>
-    /// Temporarily set to true when an AI insight reference scrolls to this comment.
+    /// Temporarily set to true when a search or reference scrolls to this comment.
     /// The UI binds to this to show a highlight border/background for a few seconds.
     /// </summary>
     public bool IsHighlighted
@@ -77,13 +83,23 @@ public class WebCommentNode : INotifyPropertyChanged
         }
     }
 
-    public string By { get; set;  }
+    public string By { get; set; }
     public string? TimeAgo { get; set; }
 
-    // Cached text to avoid re-parsing HTML on every UI access
-    public string? MdText => _mdText;
+    private readonly long? _time;
+    /// <summary>
+    /// Unix timestamp of when the comment was posted.
+    /// </summary>
+    public long? Time => _time;
 
-    // Icon changes based on collapsed state
+    /// <summary>
+    /// The comment body, converted from HN HTML to Markdown on first access.
+    /// Subsequent reads return the cached value. Conversion is skipped for any
+    /// comment whose MarkdownTextBlock is never realized (collapsed parents,
+    /// off-screen items in a virtualized list, etc.).
+    /// </summary>
+    public string? MdText => _mdTextLazy.Value;
+
     public string CollapseIcon => IsCollapsed ? "\uE76C" : "\uE76B";
 
     public void ToggleCollapsed()

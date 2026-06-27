@@ -7,7 +7,7 @@
 
 ## General Instructions
 - Make only high confidence suggestions when reviewing code changes.
-- Write code with good maintainability practices, including comments on why certain design decisions were made.
+- Write code with good maintainability practices, including comments on why certain design decisions are made.
 - Handle edge cases and write clear exception handling.
 - For libraries or external dependencies, mention their usage and purpose in comments.
 
@@ -15,7 +15,7 @@
 
 - Follow PascalCase for component names, method names, and public members.
 - Use camelCase for private fields and local variables.
-- Prefix interface names with "I" (e.g., IUserService).
+- Prefix interface names with "I" (e.g. IUserService).
 
 ## Build Commands
 
@@ -39,9 +39,14 @@ dotnet run --project .\src\HNReader.WinUI\HNReader.WinUI.csproj -r win-x64
 dotnet run --project .\src\HNReader.WinUI\HNReader.WinUI.csproj 
 ```
 
+### Run Tests
+```powershell
+dotnet test
+```
+
 ## Project-Specific Rules
-- Use web-scraped comments (WebCommentNode) exclusively.
-- Remove unused legacy API-based Comment/CommentNode classes and the API comment loading infrastructure.
 - Always run `dotnet restore` before building after dependency changes.
 - For development, use debug configuration; for distribution, ensure x64 release builds.
-- GitHub Copilot CLI can work across the entire solution but should focus on HNReader.Core for business logic and HNReader.WinUI for presentation layer.
+- This project has no AI/ML/LLM dependencies — keep it that way. All features are local and deterministic.
+- The app talks only to `news.ycombinator.com` (Firebase API + website). No third-party services.
+- Local persistence is limited to LiteDB (`favorites.db`) and a JSON file (`settings.json`) under `%LOCALAPPDATA%\HNReader\`.

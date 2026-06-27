@@ -25,11 +25,26 @@ public class Story : BaseHNItem, INotifyPropertyChanged
     [JsonPropertyName("kids")]
     public List<int>? Kids { get; set; }
 
+    private int? _descendants;
+
     /// <summary>
-    /// The total comment count.
+    /// The total comment count as reported by the HN API. May be 0 for some stories
+    /// (especially Ask HN) due to known inconsistencies in the Firebase API;
+    /// callers should refresh this from the actual HTML page if an accurate count
+    /// is critical.
     /// </summary>
     [JsonPropertyName("descendants")]
-    public int? Descendants { get; set; }
+    public int? Descendants
+    {
+        get => _descendants;
+        set
+        {
+            if (_descendants == value) return;
+            _descendants = value;
+            OnPropertyChanged();
+            OnPropertyChanged(nameof(CommentCount));
+        }
+    }
 
     /// <summary>
     /// Display-friendly comment count (returns 0 if null).

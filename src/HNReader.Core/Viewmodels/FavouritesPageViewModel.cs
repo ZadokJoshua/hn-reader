@@ -3,6 +3,7 @@ using HNReader.Core.Enums;
 using HNReader.Core.Interfaces;
 using HNReader.Core.Models;
 using HNReader.Core.Services;
+using System;
 
 namespace HNReader.Core.Viewmodels;
 
@@ -20,14 +21,16 @@ public partial class FavouritesPageViewModel : PageViewModel, IDisposable
 
     public override bool ShowListEmptyState => ShowFavoritesEmptyState;
 
+    public override bool ShowLoadMoreFooter => false;
+
     public override string EmptyStateTitle => "No favourites yet";
 
     public override string EmptyStateDescription => "Tap the heart icon on any story to save it here for quick access. Browse Top, New, or Best stories to start building your list.";
 
     public override string EmptyStateGlyph => "\uE734";
 
-    public FavouritesPageViewModel(HNClient client, IFavoritesService favoritesService, ISettingsService settingsService, HNWebClient webClient, IContentScraperService contentScraperService, CopilotCliService copilotCliService, IVaultFileService vaultFileService)
-        : base(client, favoritesService, StoryType.Top, contentScraperService, settingsService, webClient, copilotCliService, vaultFileService)
+    public FavouritesPageViewModel(HNClient client, Lazy<IFavoritesService> favoritesService, HNWebClient webClient)
+        : base(client, favoritesService, StoryType.Top, webClient)
     {
         PageTitle = "Favourites";
         FavoritesService.FavoritesChanged += OnFavoritesChanged;
@@ -44,15 +47,14 @@ public partial class FavouritesPageViewModel : PageViewModel, IDisposable
 
         try
         {
-            // Get favorite IDs, then fetch fresh data from API
             var favoriteIds = await FavoritesService.GetAllIdsAsync();
             Stories.Clear();
-            
+
             if (favoriteIds.Count > 0)
             {
                 var tasks = favoriteIds.Select(id => Client.GetItemAsync<Story>(id));
                 var stories = await Task.WhenAll(tasks);
-                
+
                 foreach (var story in stories.Where(s => s != null))
                 {
                     story!.IsFavorite = true;
@@ -80,16 +82,12 @@ public partial class FavouritesPageViewModel : PageViewModel, IDisposable
 
     protected override Task LoadMoreStoriesAsync()
     {
-        // No pagination for favourites
         return Task.CompletedTask;
     }
 
     private async void OnFavoritesChanged(object? sender, EventArgs e)
     {
-        if (_isDisposed)
-        {
-            return;
-        }
+        if (_isDisposed) return;
 
         try
         {
@@ -108,10 +106,7 @@ public partial class FavouritesPageViewModel : PageViewModel, IDisposable
 
     public void Dispose()
     {
-        if (_isDisposed)
-        {
-            return;
-        }
+        if (_isDisposed) return;
 
         FavoritesService.FavoritesChanged -= OnFavoritesChanged;
         _isDisposed = true;

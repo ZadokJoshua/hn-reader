@@ -8,6 +8,5 @@ public enum ApplicationPages
     Show,
     Ask,
     Favourites,
-    NewsDigest,
     Settings
 }

@@ -6,6 +6,7 @@ using Microsoft.UI.Xaml;
 using Microsoft.UI;
 using Microsoft.UI.Windowing;
 using System;
+using System.IO;
 using WinRT.Interop;
 using HNReader.Core.Interfaces;
 
@@ -17,7 +18,6 @@ public sealed partial class MainWindow : Window
     private readonly NavigationService? _navigationService;
     private readonly ISettingsService? _settingsService;
     private AppWindow? _appWindow;
-    private readonly IServiceProvider? _serviceProvider;
     private bool _suppressNavSelection;
 
     public MainWindow(MainViewModel mainViewModel)
@@ -30,7 +30,6 @@ public sealed partial class MainWindow : Window
 
         if (Application.Current is App currentApp && currentApp.Services != null)
         {
-            _serviceProvider = currentApp.Services;
             _navigationService = currentApp.Services.GetService<NavigationService>();
             if (_navigationService != null)
             {
@@ -38,19 +37,16 @@ public sealed partial class MainWindow : Window
                 _navigationService.Navigated += OnPageNavigated;
             }
             _settingsService = currentApp.Services.GetService<ISettingsService>();
-            
-            // Subscribe to theme changes to update title bar button colors
+
             if (_settingsService != null)
             {
                 _settingsService.ThemeChanged += OnThemeChanged;
             }
         }
 
-        // Always start on the News Digest page
-        SelectNavItemForPage(ApplicationPages.NewsDigest);
-        _navigationService?.NavigateToPage(ApplicationPages.NewsDigest);
+        SelectNavItemForPage(ApplicationPages.New);
+        _navigationService?.NavigateToPage(ApplicationPages.New);
 
-        // Set initial title bar colors based on current theme
         UpdateTitleBarColors();
     }
 
@@ -69,7 +65,6 @@ public sealed partial class MainWindow : Window
         _suppressNavSelection = true;
         NavView.SelectedItem = page switch
         {
-            ApplicationPages.NewsDigest => NewsDigestPageNavItem,
             ApplicationPages.New => NewPageNavItem,
             ApplicationPages.Top => TopPageNavItem,
             ApplicationPages.Best => BestPageNavItem,
@@ -95,6 +90,12 @@ public sealed partial class MainWindow : Window
         {
             _appWindow.Resize(new Windows.Graphics.SizeInt32(1400, 900));
             _appWindow.Title = "HN Reader";
+
+            var iconPath = Path.Combine(AppContext.BaseDirectory, "HnReaderIcon.ico");
+            if (File.Exists(iconPath))
+            {
+                _appWindow.SetIcon(iconPath);
+            }
         }
     }
 
@@ -103,14 +104,10 @@ public sealed partial class MainWindow : Window
         if (_appWindow?.TitleBar == null) return;
 
         var titleBar = _appWindow.TitleBar;
-        
-        // Determine if we're in light or dark mode
         var isDarkMode = IsDarkTheme();
 
-        // Set button colors based on theme
         if (isDarkMode)
         {
-            // Dark theme - light text on dark background
             titleBar.ButtonForegroundColor = Colors.White;
             titleBar.ButtonHoverForegroundColor = Colors.White;
             titleBar.ButtonPressedForegroundColor = Colors.White;
@@ -118,56 +115,50 @@ public sealed partial class MainWindow : Window
         }
         else
         {
-            // Light theme - dark text on light background
             titleBar.ButtonForegroundColor = Colors.Black;
             titleBar.ButtonHoverForegroundColor = Colors.Black;
             titleBar.ButtonPressedForegroundColor = Colors.Black;
             titleBar.ButtonInactiveForegroundColor = Colors.Gray;
         }
 
-        // Make button backgrounds transparent to blend with Mica
         titleBar.ButtonBackgroundColor = Colors.Transparent;
-        titleBar.ButtonHoverBackgroundColor = isDarkMode 
-            ? Windows.UI.Color.FromArgb(25, 255, 255, 255) 
+        titleBar.ButtonHoverBackgroundColor = isDarkMode
+            ? Windows.UI.Color.FromArgb(25, 255, 255, 255)
             : Windows.UI.Color.FromArgb(25, 0, 0, 0);
-        titleBar.ButtonPressedBackgroundColor = isDarkMode 
-            ? Windows.UI.Color.FromArgb(40, 255, 255, 255) 
+        titleBar.ButtonPressedBackgroundColor = isDarkMode
+            ? Windows.UI.Color.FromArgb(40, 255, 255, 255)
             : Windows.UI.Color.FromArgb(40, 0, 0, 0);
         titleBar.ButtonInactiveBackgroundColor = Colors.Transparent;
     }
 
     private bool IsDarkTheme()
     {
-        // Check settings first
         if (_settingsService != null)
         {
             return _settingsService.Theme switch
             {
                 AppTheme.Dark => true,
                 AppTheme.Light => false,
-                _ => IsSystemDarkTheme() // Auto - follow system
+                _ => IsSystemDarkTheme()
             };
         }
-        
+
         return IsSystemDarkTheme();
     }
 
     private bool IsSystemDarkTheme()
     {
-        // Check the actual theme of the root element
         if (Content is FrameworkElement rootElement)
         {
             var actualTheme = rootElement.ActualTheme;
             return actualTheme == ElementTheme.Dark;
         }
 
-        // Fallback: check system theme via Application RequestedTheme
         return Application.Current.RequestedTheme == ApplicationTheme.Dark;
     }
 
     private void SetPagesTags()
     {
-        NewsDigestPageNavItem.Tag = ApplicationPages.NewsDigest.ToString();
         NewPageNavItem.Tag = ApplicationPages.New.ToString();
         TopPageNavItem.Tag = ApplicationPages.Top.ToString();
         FavouritesPageNavItem.Tag = ApplicationPages.Favourites.ToString();
@@ -179,22 +170,17 @@ public sealed partial class MainWindow : Window
 
     private void NavView_SelectionChanged(Microsoft.UI.Xaml.Controls.NavigationView sender, Microsoft.UI.Xaml.Controls.NavigationViewSelectionChangedEventArgs args)
     {
-        if (_suppressNavSelection)
-        {
-            return;
-        }
+        if (_suppressNavSelection) return;
 
         var selectedItem = args.SelectedItem as Microsoft.UI.Xaml.Controls.NavigationViewItem;
-        if (selectedItem?.Tag == null)
-        {
-            return;
-        }
+        if (selectedItem?.Tag == null) return;
 
         SetContentFramePage(selectedItem);
     }
 
     private void SetContentFramePage(Microsoft.UI.Xaml.Controls.NavigationViewItem selectedItem)
     {
-        _navigationService?.NavigateToPage(Enum.Parse<ApplicationPages>(selectedItem.Tag.ToString()!));
+        var page = Enum.Parse<ApplicationPages>(selectedItem.Tag.ToString()!);
+        _navigationService?.NavigateToPage(page);
     }
 }

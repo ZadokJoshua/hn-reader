@@ -13,6 +13,38 @@ namespace HNReader.Core.Services;
 public class HNWebClient(HttpClient httpClient)
 {
     /// <summary>
+    /// Fetches the comment count directly from the HTML page, which is authoritative
+    /// even when the HN Firebase API returns 0 (common for Ask HN posts).
+    /// </summary>
+    /// <param name="storyId">The HN story ID</param>
+    /// <param name="cancellationToken">Cancellation token</param>
+    /// <returns>Number of <c>&lt;tr class="comtr"&gt;</c> rows in the page, or 0 if the request failed.</returns>
+    public async Task<int> GetAccurateCommentCountAsync(int storyId, CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            var html = await httpClient.GetStringAsync($"item?id={storyId}", cancellationToken).ConfigureAwait(false);
+            cancellationToken.ThrowIfCancellationRequested();
+
+            // Count <tr class="comtr"> rows. This is the source of truth — the
+            // HTML page always reflects the current state of comments.
+            var doc = new HtmlDocument();
+            doc.LoadHtml(html);
+            var nodes = doc.DocumentNode.SelectNodes("//tr[contains(@class,'comtr')]");
+            return nodes?.Count ?? 0;
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            Debug.WriteLine($"Error fetching accurate comment count for story {storyId}: {ex.Message}");
+            return 0;
+        }
+    }
+
+    /// <summary>
     /// Fetches all comments for a story by parsing the HTML page directly.
     /// This is much faster than the API approach as it requires only one HTTP request.
     /// </summary>
@@ -22,33 +54,22 @@ public class HNWebClient(HttpClient httpClient)
     {
         var comments = new List<WebComment>();
 
-        try
-        {
-            var html = await httpClient.GetStringAsync($"item?id={storyId}", cancellationToken);
+        var html = await httpClient.GetStringAsync($"item?id={storyId}", cancellationToken).ConfigureAwait(false);
 
+        cancellationToken.ThrowIfCancellationRequested();
+
+        var doc = new HtmlDocument();
+        doc.LoadHtml(html);
+
+        // Get all comment rows using XPath selectors
+        var commentNodes = doc.DocumentNode.SelectNodes("//tr[contains(@class,'comtr')]");
+        if (commentNodes == null || commentNodes.Count == 0) return comments;
+
+        foreach (var commentNode in commentNodes)
+        {
             cancellationToken.ThrowIfCancellationRequested();
-
-            var doc = new HtmlDocument();
-            doc.LoadHtml(html);
-
-            // Get all comment rows using XPath selectors
-            var commentNodes = doc.DocumentNode.SelectNodes("//tr[contains(@class,'comtr')]");
-            if (commentNodes == null || commentNodes.Count == 0) return comments;
-
-            foreach (var commentNode in commentNodes)
-            {
-                cancellationToken.ThrowIfCancellationRequested();
-                var comment = ParseCommentFromNode(commentNode);
-                if (comment != null) comments.Add(comment);
-            }
-        }
-        catch (OperationCanceledException)
-        {
-            throw;
-        }
-        catch (Exception ex)
-        {
-            Debug.WriteLine($"Error fetching comments from web: {ex.Message}");
+            var comment = ParseCommentFromNode(commentNode);
+            if (comment != null) comments.Add(comment);
         }
 
         return comments;
@@ -88,11 +109,13 @@ public class HNWebClient(HttpClient httpClient)
             var text = CleanCommentTextOptimized(commentTextNode);
 
             // Check if comment is deleted or dead
+            // Cache OuterHtml to avoid multiple string rebuilds
+            var outerHtml = commentNode.OuterHtml;
             if (string.IsNullOrWhiteSpace(text) || 
-                commentNode.OuterHtml.Contains("[deleted]") || 
-                commentNode.OuterHtml.Contains("[flagged]") ||
-                commentNode.OuterHtml.Contains("class=\"cdd\"") || 
-                commentNode.OuterHtml.Contains("[dead]"))
+                outerHtml.Contains("[deleted]") || 
+                outerHtml.Contains("[flagged]") ||
+                outerHtml.Contains("class=\"cdd\"") || 
+                outerHtml.Contains("[dead]"))
             {
                 return null;
             }

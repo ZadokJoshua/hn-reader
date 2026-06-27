@@ -5,21 +5,18 @@
 ![.NET](https://img.shields.io/badge/.NET-8.0-512BD4)
 ![WinUI](https://img.shields.io/badge/WinUI-3-blue)
 
-A modern Hacker News reader for Windows, powered by **GitHub Copilot CLI** for AI-generated insights and personalized news digests.
+A modern, fast Hacker News reader for Windows. No external services, no AI, no telemetry - just a clean WinUI 3 client for the stories you care about.
 
-
-<figure>
-  <img src="https://raw.githubusercontent.com/ZadokJoshua/hn-reader/refs/heads/main/assets/news-digest-overview.png"
-       alt="News Digest Overview">
-</figure>
 
 ## Features
 
-- **AI-Powered Insights** — Generate structured analysis of stories and discussions using GitHub Copilot
-- **Personalized News Digest** — AI-curated daily digest based on your configured interests
-- **Browse Hacker News** — View Top, New, Best, Ask HN, and Show HN stories
-- **Favorites** — Save stories for later reading
-- **Modern UI** — WinUI 3 design with light/dark theme support
+- **Browse Hacker News** — Top, New, Best, Ask HN, and Show HN feeds with paginated infinite scroll
+- **Quick filters** — One-click toggle to show only Ask HN or only Show HN posts on any feed
+- **Comment sorting** — Re-sort loaded comment threads by Top, New, or most-replied
+- **Full comment threads** — Recursive reply tree parsed from the live HN site (faster than the official API)
+- **Favorites** — Save stories locally with LiteDB; export/import as JSON for backup
+- **In-place search** — Filter any list by title, author, or domain
+- **Modern UI** — WinUI 3 with Mica backdrop, light/dark theme, and a custom title bar
 
 ## Architecture
 
@@ -36,35 +33,25 @@ flowchart TB
         direction TB
         HNClient["HNClient<br/>(Hacker News API)"]
         HNWebClient["HNWebClient<br/>(Comment Scraper)"]
-        CopilotService["CopilotCliService<br/>(AI Orchestration)"]
-        VaultService["VaultFileService<br/>(Knowledge Base)"]
         SettingsService["SettingsService<br/>(User Preferences)"]
-        ContentScraper["ContentScraperService<br/>(Article Extraction)"]
+        FavoritesService["FavoritesService<br/>(LiteDB store)"]
     end
 
     subgraph External["External Services"]
-        direction TB
         HNAPI["Hacker News API<br/>api.hackernews.com"]
         HNWeb["Hacker News Web<br/>news.ycombinator.com"]
-        CopilotSDK["GitHub Copilot SDK<br/>AI Agent Sessions"]
-        FileSystem["Local File System<br/>Knowledge Vault"]
+        LocalFS["Local File System<br/>favorites.db, settings.json"]
     end
 
     ViewModels --> HNClient
     ViewModels --> HNWebClient
-    ViewModels --> CopilotService
-    ViewModels --> VaultService
-    ViewModels --> ContentScraper
+    ViewModels --> SettingsService
+    ViewModels --> FavoritesService
 
     HNClient --> HNAPI
     HNWebClient --> HNWeb
-    ContentScraper --> HNWeb
-    CopilotService --> CopilotSDK
-    CopilotService --> VaultService
-    VaultService --> FileSystem
-
-    style CopilotSDK fill:#6366f1,color:#fff
-    style CopilotService fill:#6366f1,color:#fff
+    SettingsService --> LocalFS
+    FavoritesService --> LocalFS
 ```
 
 ## Getting Started
@@ -73,7 +60,6 @@ flowchart TB
 
 - **Windows 10/11** (version 1809 or later)
 - **.NET 8.0 SDK** — [Download](https://dotnet.microsoft.com/download/dotnet/8.0)
-- **GitHub Copilot CLI** — Required for AI features. [Installation guide](https://docs.github.com/en/copilot/concepts/agents/about-copilot-cli)
 - **Visual Studio 2022** (recommended) with:
   - .NET Desktop Development workload
   - Windows App SDK
@@ -97,43 +83,34 @@ dotnet run --project .\src\HNReader.WinUI\HNReader.WinUI.csproj -r win-x64
 
 Or open `HNReaderApp.sln` in Visual Studio and press F5.
 
-### First-Time Setup
-
-1. **Configure Knowledge Vault** — Open Settings and select a folder for your vault
-2. **Add Interests** — Configure topics for your personalized news digest
-3. **Verify Copilot CLI** — Ensure `copilot --version` works in your terminal
-
-## Configuration
-
-### Knowledge Vault
-
-The Knowledge Vault is a local folder where HN Reader stores:
-
-```
-📁 YourVault/
-├── 📁 news_digest/
-│   ├── Agent.md                    # AI agent instructions
-│   ├── unprocessed_data.json       # Raw story data for digest
-│   └── digest.json                 # Generated digest output
-└── 📁 stories/
-    ├── Agent.md                    # AI agent instructions
-    ├── 12345678.md                 # Story markdown files
-    └── 87654321.md
-```
-
-[Learn more about Copilot CLI modes](https://docs.github.com/en/copilot/concepts/agents/about-copilot-cli#modes-of-use)
-
 ## Project Structure
 
 ```
 src/
 ├── HNReader.Core/           # Core business logic
 │   ├── Models/              # Data models
-│   ├── Services/            # API clients, AI orchestration
+│   ├── Services/            # API clients, storage
 │   ├── ViewModels/          # MVVM ViewModels
-│   └── Helpers/             # Utilities
+│   ├── Enums/               # ApplicationPages, StoryType, CommentSortMode
+│   ├── Helpers/             # LRU cache, comment tree, HTML/Markdown helpers
+│   └── Interfaces/          # Service contracts
 └── HNReader.WinUI/          # WinUI 3 presentation
     ├── Views/               # XAML pages
-    ├── Controls/            # Custom controls
-    └── Converters/          # Value converters
+    ├── Controls/            # Custom controls (StoriesPageControl)
+    ├── Converters/          # Value converters
+    ├── Services/            # NavigationService, ErrorDialogService
+    └── Factories/           # PageFactory
+
+tests/
+├── HNReader.Core.Tests/         # Unit tests for core logic
+├── HNReader.Integration.Tests/  # Integration test project
+└── HNReader.WinUI.Tests/        # WinUI test project
 ```
+
+## Keyboard Shortcuts (future)
+
+- `j` / `k` — next/previous story in the list
+- `o` — open story URL in default browser
+- `c` — toggle comments
+- `s` — toggle favorite
+- `Ctrl+F` — focus search

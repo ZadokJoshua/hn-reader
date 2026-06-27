@@ -11,10 +11,12 @@ public static class CommentTreeBuilder
     /// <summary>
     /// Builds a tree of WebCommentNodes from a flat list of web-parsed comments.
     /// The comments already have depth information, making tree construction efficient.
+    /// Supports cancellation for responsiveness when user cancels comment loading.
     /// </summary>
     /// <param name="comments">Flat list of comments with depth info</param>
+    /// <param name="cancellationToken">Cancellation token to stop tree building if needed</param>
     /// <returns>Root-level comments with children populated</returns>
-    public static List<WebCommentNode> BuildTree(List<WebComment> comments)
+    public static List<WebCommentNode> BuildTree(List<WebComment> comments, CancellationToken cancellationToken = default)
     {
         if (comments == null || comments.Count == 0) return [];
 
@@ -24,6 +26,12 @@ public static class CommentTreeBuilder
 
         foreach (var node in nodes)
         {
+            // Check cancellation periodically (every ~50 comments to balance responsiveness vs overhead)
+            if ((rootNodes.Count + parentStack.Count) % 50 == 0)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+            }
+
             // Pop from stack until we find the parent level
             while (parentStack.Count > 0 && parentStack.Peek().Depth >= node.Depth)
             {

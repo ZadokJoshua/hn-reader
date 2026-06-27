@@ -1,0 +1,10 @@
+{
+  "profiles": {
+    "HNReader.WinUI (Package)": {
+      "commandName": "MsixPackage"
+    },
+    "HNReader.WinUI (Unpackaged)": {
+      "commandName": "Project"
+    }
+  }
+}

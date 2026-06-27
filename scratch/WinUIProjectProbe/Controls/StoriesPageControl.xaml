@@ -1,0 +1,595 @@
+<UserControl
+    x:Class="HNReader.WinUI.Controls.StoriesPageControl"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:controls="using:HNReader.WinUI.Controls"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:local="using:HNReader.WinUI.Controls"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:models="using:HNReader.Core.Models"
+    xmlns:vm="using:HNReader.Core.Viewmodels"
+    xmlns:toolkit="using:CommunityToolkit.WinUI.UI.Controls"
+    d:DataContext="{d:DesignInstance Type=vm:PageViewModel}"
+    mc:Ignorable="d">
+
+    <UserControl.Resources>
+        <SolidColorBrush x:Key="HNAccentBrush" Color="#FF6600" />
+
+        <Style x:Key="CardBorderStyle" TargetType="Border">
+            <Setter Property="Background" Value="{ThemeResource CardBackgroundFillColorDefaultBrush}" />
+            <Setter Property="CornerRadius" Value="12" />
+            <Setter Property="Padding" Value="20" />
+        </Style>
+
+        <Style x:Key="CommentCardBorderStyle" TargetType="Border">
+            <Setter Property="Padding" Value="12" />
+            <Setter Property="Margin" Value="0,6,0,2" />
+            <Setter Property="Background" Value="{ThemeResource CardBackgroundFillColorDefaultBrush}" />
+            <Setter Property="CornerRadius" Value="8" />
+            <Setter Property="BorderBrush" Value="{ThemeResource CardStrokeColorDefaultBrush}" />
+            <Setter Property="BorderThickness" Value="1" />
+        </Style>
+
+        <Style x:Key="CollapseButtonStyle" TargetType="Button">
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="Padding" Value="8,4" />
+            <Setter Property="CornerRadius" Value="4" />
+        </Style>
+
+        <Style x:Key="ActionButtonStyle" TargetType="Button">
+            <Setter Property="Padding" Value="12,8" />
+            <Setter Property="MinWidth" Value="0" />
+            <Setter Property="CornerRadius" Value="6" />
+        </Style>
+
+        <Style x:Key="MetaTextStyle" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="12" />
+            <Setter Property="Foreground" Value="{ThemeResource TextFillColorSecondaryBrush}" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+        </Style>
+
+        <Style x:Key="MetaIconStyle" TargetType="FontIcon">
+            <Setter Property="FontSize" Value="12" />
+            <Setter Property="Foreground" Value="{ThemeResource TextFillColorSecondaryBrush}" />
+        </Style>
+
+        <DataTemplate x:Key="WebCommentTemplate" x:DataType="models:WebCommentNode">
+            <Grid Margin="{Binding Depth, Converter={StaticResource DepthToMarginConverter}}">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="20" />
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+
+                <Border
+                    Grid.Column="0"
+                    Width="2"
+                    Background="{ThemeResource CardStrokeColorDefaultBrush}"
+                    HorizontalAlignment="Center"
+                    VerticalAlignment="Stretch"
+                    CornerRadius="1"
+                    Opacity="0.85"
+                    Visibility="{Binding Depth, Converter={StaticResource DepthToVisibilityConverter}}" />
+
+                <StackPanel Grid.Column="1" Margin="4,0,0,0">
+                    <Border
+                        Style="{StaticResource CommentCardBorderStyle}"
+                        BorderBrush="{Binding IsHighlighted, Converter={StaticResource HighlightBorderBrushConverter}}"
+                        BorderThickness="{Binding IsHighlighted, Converter={StaticResource HighlightBorderThicknessConverter}}"
+                        Tag="{Binding CommentId}">
+                        <StackPanel Spacing="8">
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+                                <StackPanel Orientation="Horizontal" Spacing="6">
+                                    <TextBlock
+                                        FontWeight="SemiBold"
+                                        Text="{Binding By}"
+                                        FontSize="13"
+                                        Foreground="{StaticResource HNAccentBrush}"
+                                        VerticalAlignment="Center" />
+                                    <FontIcon
+                                        Glyph="&#xE91F;"
+                                        FontSize="8"
+                                        VerticalAlignment="Center"
+                                        Foreground="{ThemeResource TextFillColorTertiaryBrush}"
+                                        Margin="0,1,0,0" />
+                                    <TextBlock
+                                        Text="{Binding TimeAgo}"
+                                        Style="{StaticResource MetaTextStyle}" />
+                                </StackPanel>
+                                <Button
+                                    Grid.Column="1"
+                                    Click="OnToggleWebCommentCollapseClicked"
+                                    Style="{StaticResource CollapseButtonStyle}"
+                                    ToolTipService.ToolTip="Collapse/Expand">
+                                    <TextBlock
+                                        Text="{Binding IsCollapsed, Converter={StaticResource BoolToCollapseTextConverter}}"
+                                        FontSize="11"
+                                        Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                                </Button>
+                            </Grid>
+
+                            <toolkit:MarkdownTextBlock
+                                TextWrapping="Wrap"
+                                Text="{Binding MdText}"
+                                FontSize="13"
+                                Background="Transparent"
+                                CodeBackground="{ThemeResource LayerFillColorDefaultBrush}"
+                                CodeBorderBrush="{ThemeResource DividerStrokeColorDefaultBrush}"
+                                CodeForeground="{ThemeResource TextFillColorPrimaryBrush}"
+                                InlineCodeBackground="{ThemeResource LayerFillColorDefaultBrush}"
+                                InlineCodeBorderBrush="{ThemeResource DividerStrokeColorDefaultBrush}"
+                                LinkForeground="{ThemeResource AccentTextFillColorPrimaryBrush}"
+                                QuoteBackground="{ThemeResource LayerFillColorDefaultBrush}"
+                                QuoteBorderBrush="{ThemeResource DividerStrokeColorDefaultBrush}"
+                                QuoteForeground="{ThemeResource TextFillColorPrimaryBrush}"
+                                LinkClicked="OnCommentMarkdownLinkClicked"
+                                IsTextSelectionEnabled="True"
+                                Visibility="{Binding IsCollapsed, Converter={StaticResource BoolToVisibilityConverter}, ConverterParameter=Inverse}" />
+                        </StackPanel>
+                    </Border>
+
+                    <ItemsControl
+                        ItemsSource="{Binding Children}"
+                        ItemTemplate="{StaticResource WebCommentTemplate}"
+                        Visibility="{Binding IsCollapsed, Converter={StaticResource BoolToVisibilityConverter}, ConverterParameter=Inverse}" />
+                </StackPanel>
+            </Grid>
+        </DataTemplate>
+    </UserControl.Resources>
+
+    <Grid Background="{ThemeResource LayerFillColorDefaultBrush}">
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="400" MinWidth="320" />
+            <ColumnDefinition Width="*" MinWidth="350" />
+        </Grid.ColumnDefinitions>
+
+        <!-- Stories List Panel -->
+        <Grid Grid.Column="0" BorderBrush="{ThemeResource DividerStrokeColorDefaultBrush}" BorderThickness="0,0,1,0">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="*" />
+            </Grid.RowDefinitions>
+
+            <!-- Header -->
+            <Border Grid.Row="0" Padding="20,16" Background="{ThemeResource LayerFillColorAltBrush}">
+                <StackPanel Spacing="12">
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <TextBlock
+                            Grid.Column="0"
+                            FontSize="20"
+                            FontWeight="SemiBold"
+                            Text="{Binding PageTitle, FallbackValue='Stories'}" />
+                    </Grid>
+                    <TextBox
+                        PlaceholderText="Search stories..."
+                        Text="{Binding SearchText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                        IsEnabled="{Binding HasStories}"
+                        Margin="0,4,0,0" />
+                </StackPanel>
+            </Border>
+
+            <!-- Stories List -->
+            <Grid Grid.Row="1">
+                <ListView
+                    x:Name="StoriesList"
+                    ItemsSource="{Binding FilteredStories}"
+                    SelectedItem="{Binding SelectedStory, Mode=TwoWay}"
+                    SelectionMode="Single"
+                    Padding="8"
+                    Visibility="{Binding IsLoading, Converter={StaticResource BoolToVisibilityConverter}, ConverterParameter=Inverse}">
+                    <ListView.ItemContainerStyle>
+                        <Style TargetType="ListViewItem">
+                            <Setter Property="Padding" Value="0" />
+                            <Setter Property="Margin" Value="0,2" />
+                            <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+                        </Style>
+                    </ListView.ItemContainerStyle>
+                    <ListView.ItemTemplate>
+                        <DataTemplate x:DataType="models:Story">
+                            <controls:StoryListItemControl
+                                Title="{x:Bind Title}"
+                                Score="{x:Bind DisplayScore}"
+                                Descendants="{x:Bind CommentCount}"
+                                TimeAgo="{x:Bind TimeAgo}"
+                                By="{x:Bind By}"
+                                IsFavorite="{x:Bind IsFavorite}"
+                                RootDomain="{x:Bind RootDomain}" />
+                        </DataTemplate>
+                    </ListView.ItemTemplate>
+                    <ListView.Footer>
+                        <Grid Padding="8,16" Visibility="{Binding ShowLoadMoreFooter, Converter={StaticResource BoolToVisibilityConverter}}">
+                            <Button
+                                x:Name="LoadMoreButton"
+                                Content="{Binding LoadMoreButtonText}"
+                                Click="OnLoadMoreClicked"
+                                IsEnabled="{Binding IsLoadMoreEnabled}"
+                                HorizontalAlignment="Stretch"
+                                Padding="16,12"
+                                Visibility="{Binding IsLoadingMore, Converter={StaticResource BoolToVisibilityConverter}, ConverterParameter=Inverse}">
+                                <Button.Transitions>
+                                    <TransitionCollection>
+                                        <EntranceThemeTransition />
+                                    </TransitionCollection>
+                                </Button.Transitions>
+                            </Button>
+
+                            <Border
+                                Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                                CornerRadius="8"
+                                Padding="16,12"
+                                Visibility="{Binding IsLoadingMore, Converter={StaticResource BoolToVisibilityConverter}}">
+                                <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Spacing="12">
+                                    <ProgressRing Width="20" Height="20" IsActive="{Binding IsLoadingMore}" />
+                                    <TextBlock
+                                        Text="Loading more stories..."
+                                        FontSize="14"
+                                        VerticalAlignment="Center"
+                                        Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                                </StackPanel>
+                                <Border.Transitions>
+                                    <TransitionCollection>
+                                        <EntranceThemeTransition />
+                                    </TransitionCollection>
+                                </Border.Transitions>
+                            </Border>
+                        </Grid>
+                    </ListView.Footer>
+                </ListView>
+
+                <Grid Visibility="{Binding IsLoading, Converter={StaticResource BoolToVisibilityConverter}}">
+                    <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="16">
+                        <ProgressRing Width="48" Height="48" IsActive="{Binding IsLoading}" />
+                        <TextBlock
+                            Text="Loading stories..."
+                            FontSize="14"
+                            Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                    </StackPanel>
+                </Grid>
+
+                <Grid Visibility="{Binding HasError, Converter={StaticResource BoolToVisibilityConverter}}">
+                    <Border
+                        HorizontalAlignment="Center"
+                        VerticalAlignment="Center"
+                        Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                        CornerRadius="12"
+                        Padding="32"
+                        MaxWidth="320">
+                        <StackPanel Spacing="16" HorizontalAlignment="Center">
+                            <FontIcon
+                                Glyph="&#xE783;"
+                                FontSize="48"
+                                Foreground="{ThemeResource SystemFillColorCriticalBrush}" />
+                            <TextBlock
+                                Text="Unable to load stories"
+                                FontSize="16"
+                                FontWeight="SemiBold"
+                                HorizontalAlignment="Center" />
+                            <TextBlock
+                                Text="{Binding ErrorMessage}"
+                                TextWrapping="Wrap"
+                                TextAlignment="Center"
+                                Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                FontSize="13" />
+                            <Button
+                                Content="Try Again"
+                                Command="{Binding RetryCommand}"
+                                HorizontalAlignment="Center"
+                                Style="{StaticResource AccentButtonStyle}" />
+                        </StackPanel>
+                    </Border>
+                </Grid>
+
+                <Grid Visibility="{Binding ShowListEmptyState, Converter={StaticResource BoolToVisibilityConverter}}">
+                    <Border
+                        HorizontalAlignment="Center"
+                        VerticalAlignment="Center"
+                        Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                        CornerRadius="12"
+                        Padding="32"
+                        MaxWidth="360">
+                        <StackPanel Spacing="12" HorizontalAlignment="Center">
+                            <FontIcon Glyph="{Binding EmptyStateGlyph}" FontSize="40" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                            <TextBlock
+                                Text="{Binding EmptyStateTitle}"
+                                FontSize="18"
+                                FontWeight="SemiBold"
+                                HorizontalAlignment="Center"
+                                TextWrapping="Wrap"
+                                Visibility="{Binding EmptyStateTitle, Converter={StaticResource BoolToVisibilityConverter}}" />
+                            <TextBlock
+                                Text="{Binding EmptyStateDescription}"
+                                FontSize="13"
+                                TextWrapping="Wrap"
+                                TextAlignment="Center"
+                                Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                Visibility="{Binding EmptyStateDescription, Converter={StaticResource BoolToVisibilityConverter}}" />
+                        </StackPanel>
+                    </Border>
+                </Grid>
+            </Grid>
+        </Grid>
+
+        <!-- Detail Panel -->
+        <Grid Grid.Column="1" Background="{ThemeResource LayerFillColorAltBrush}">
+            <StackPanel
+                HorizontalAlignment="Center"
+                VerticalAlignment="Center"
+                Spacing="12"
+                Visibility="{Binding SelectedStory, Converter={StaticResource BoolToVisibilityConverter}, ConverterParameter=Inverse}">
+                <FontIcon Glyph="&#xE8A4;" FontSize="64" Foreground="{ThemeResource TextFillColorTertiaryBrush}" />
+                <TextBlock
+                    Text="Select a story"
+                    FontSize="18"
+                    FontWeight="SemiBold"
+                    Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                <TextBlock
+                    Text="Choose a story from the list to view its details"
+                    FontSize="13"
+                    Foreground="{ThemeResource TextFillColorTertiaryBrush}" />
+            </StackPanel>
+
+            <Grid Visibility="{Binding SelectedStory, Converter={StaticResource BoolToVisibilityConverter}}">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="*" />
+                </Grid.RowDefinitions>
+
+                <!-- Story Header Card (Fixed) -->
+                <Border Grid.Row="0" Style="{StaticResource CardBorderStyle}" Margin="24,20,24,0">
+                    <StackPanel Spacing="16">
+                        <TextBlock
+                            FontSize="22"
+                            FontWeight="SemiBold"
+                            Text="{Binding SelectedStory.Title}"
+                            TextWrapping="Wrap"
+                            LineHeight="30"
+                            MaxLines="3"
+                            TextTrimming="CharacterEllipsis" />
+
+                        <ItemsControl>
+                            <ItemsControl.ItemsPanel>
+                                <ItemsPanelTemplate>
+                                    <StackPanel Orientation="Horizontal" Spacing="12" />
+                                </ItemsPanelTemplate>
+                            </ItemsControl.ItemsPanel>
+
+                            <Border Background="{StaticResource HNAccentBrush}" CornerRadius="4" Padding="8,4">
+                                <StackPanel Orientation="Horizontal" Spacing="4">
+                                    <FontIcon Glyph="&#xE70E;" FontSize="11" Foreground="White" />
+                                    <TextBlock Text="{Binding SelectedStory.DisplayScore}" FontWeight="Bold" Foreground="White" FontSize="12" />
+                                </StackPanel>
+                            </Border>
+
+                            <StackPanel Orientation="Horizontal" Spacing="4" VerticalAlignment="Center">
+                                <FontIcon Glyph="&#xE77B;" Style="{StaticResource MetaIconStyle}" />
+                                <TextBlock Text="{Binding SelectedStory.By}" Style="{StaticResource MetaTextStyle}" />
+                            </StackPanel>
+
+                            <StackPanel Orientation="Horizontal" Spacing="4" VerticalAlignment="Center">
+                                <FontIcon Glyph="&#xE823;" Style="{StaticResource MetaIconStyle}" />
+                                <TextBlock Text="{Binding SelectedStory.TimeAgo}" Style="{StaticResource MetaTextStyle}" />
+                            </StackPanel>
+
+                            <StackPanel Orientation="Horizontal" Spacing="4" VerticalAlignment="Center">
+                                <FontIcon Glyph="&#xE8F2;" Style="{StaticResource MetaIconStyle}" />
+                                <TextBlock Style="{StaticResource MetaTextStyle}">
+                                    <Run Text="{Binding SelectedStory.CommentCount}" />
+                                    <Run Text="comments" />
+                                </TextBlock>
+                            </StackPanel>
+                        </ItemsControl>
+
+                        <Border
+                            Background="{ThemeResource LayerFillColorDefaultBrush}"
+                            CornerRadius="6"
+                            Padding="12,10"
+                            Visibility="{Binding SelectedStory.Url, Converter={StaticResource BoolToVisibilityConverter}}">
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="*" />
+                                </Grid.ColumnDefinitions>
+                                <FontIcon Glyph="&#xE71B;" FontSize="14" Foreground="{ThemeResource TextFillColorSecondaryBrush}" Margin="0,0,10,0" VerticalAlignment="Center" />
+                                <HyperlinkButton
+                                    Grid.Column="1"
+                                    Content="{Binding SelectedStory.Url}"
+                                    NavigateUri="{Binding SelectedStory.Url}"
+                                    FontSize="13"
+                                    Padding="0"
+                                    VerticalAlignment="Center" />
+                            </Grid>
+                        </Border>
+                    </StackPanel>
+                </Border>
+
+                <!-- Story Text (Scrollable) -->
+                <Border
+                    Grid.Row="1"
+                    Style="{StaticResource CardBorderStyle}"
+                    Padding="0"
+                    Margin="24,8,24,0"
+                    MaxHeight="200"
+                    Visibility="{Binding SelectedStory.MarkdownText, Converter={StaticResource BoolToVisibilityConverter}}">
+                    <ScrollViewer
+                        VerticalScrollBarVisibility="Auto"
+                        Padding="16,12">
+                        <toolkit:MarkdownTextBlock
+                            Text="{Binding SelectedStory.MarkdownText}"
+                            TextWrapping="Wrap"
+                            FontSize="14"
+                            Background="Transparent"
+                            CodeBackground="{ThemeResource LayerFillColorDefaultBrush}"
+                            CodeBorderBrush="{ThemeResource DividerStrokeColorDefaultBrush}"
+                            CodeForeground="{ThemeResource TextFillColorPrimaryBrush}"
+                            InlineCodeBackground="{ThemeResource LayerFillColorDefaultBrush}"
+                            InlineCodeBorderBrush="{ThemeResource DividerStrokeColorDefaultBrush}"
+                            LinkForeground="{ThemeResource AccentTextFillColorPrimaryBrush}"
+                            QuoteBackground="{ThemeResource LayerFillColorDefaultBrush}"
+                            QuoteBorderBrush="{ThemeResource DividerStrokeColorDefaultBrush}"
+                            QuoteForeground="{ThemeResource TextFillColorPrimaryBrush}"
+                            LinkClicked="OnStoryMarkdownLinkClicked"
+                            IsTextSelectionEnabled="True" />
+                    </ScrollViewer>
+                </Border>
+
+                <!-- Action Buttons Card (Fixed) -->
+                <Border Grid.Row="2" Style="{StaticResource CardBorderStyle}" Padding="16" Margin="24,16,24,0">
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+
+                        <ScrollViewer HorizontalScrollBarVisibility="Auto"
+                                      VerticalScrollBarVisibility="Disabled"
+                                      HorizontalAlignment="Stretch">
+                            <StackPanel Orientation="Horizontal" Spacing="8" Margin="10">
+                                <Button
+                                    Command="{Binding ToggleFavoriteCommand}"
+                                    Style="{StaticResource ActionButtonStyle}"
+                                    ToolTipService.ToolTip="Add to favorites">
+                                    <StackPanel Orientation="Horizontal" Spacing="6">
+                                        <FontIcon Glyph="{Binding FavoriteButtonGlyph}" FontSize="14" />
+                                        <TextBlock Text="{Binding FavoriteButtonText}" FontSize="12" />
+                                    </StackPanel>
+                                </Button>
+                                <Button
+                                    Click="OnCopyLinkClicked"
+                                    Style="{StaticResource ActionButtonStyle}"
+                                    ToolTipService.ToolTip="Copy link to clipboard">
+                                    <StackPanel Orientation="Horizontal" Spacing="6">
+                                        <FontIcon Glyph="&#xE71B;" FontSize="14" />
+                                        <TextBlock Text="Copy Link" FontSize="12" />
+                                    </StackPanel>
+                                </Button>
+                                <Button
+                                    Click="OnCopyTitleClicked"
+                                    Style="{StaticResource ActionButtonStyle}"
+                                    ToolTipService.ToolTip="Copy title to clipboard">
+                                    <StackPanel Orientation="Horizontal" Spacing="6">
+                                        <FontIcon Glyph="&#xE8C8;" FontSize="14" />
+                                        <TextBlock Text="Copy Title" FontSize="12" />
+                                    </StackPanel>
+                                </Button>
+                                <Button
+                                    Click="OnShareClicked"
+                                    Style="{StaticResource ActionButtonStyle}"
+                                    ToolTipService.ToolTip="Share this story">
+                                    <StackPanel Orientation="Horizontal" Spacing="6">
+                                        <FontIcon Glyph="&#xE72D;" FontSize="14" />
+                                        <TextBlock Text="Share" FontSize="12" />
+                                    </StackPanel>
+                                </Button>
+                                <Button
+                                    Click="OnViewOnHnClicked"
+                                    Style="{StaticResource ActionButtonStyle}"
+                                    ToolTipService.ToolTip="View on Hacker News">
+                                    <StackPanel Orientation="Horizontal" Spacing="6">
+                                        <FontIcon Glyph="&#xE774;" FontSize="14" />
+                                        <TextBlock Text="View on HN" FontSize="12" />
+                                    </StackPanel>
+                                </Button>
+                            </StackPanel>
+                        </ScrollViewer>
+
+                        <Border
+                            Grid.Column="1"
+                            VerticalAlignment="Center"
+                            Background="{ThemeResource SystemFillColorSuccessBackgroundBrush}"
+                            CornerRadius="4"
+                            Padding="10,6"
+                            Visibility="{Binding ShowCopyFeedback, Converter={StaticResource BoolToVisibilityConverter}}">
+                            <StackPanel Orientation="Horizontal" Spacing="6">
+                                <FontIcon Glyph="&#xE73E;" FontSize="12" Foreground="{ThemeResource SystemFillColorSuccessBrush}" />
+                                <TextBlock Text="{Binding CopyFeedbackText}" FontSize="12" Foreground="{ThemeResource SystemFillColorSuccessBrush}" />
+                            </StackPanel>
+                        </Border>
+                    </Grid>
+                </Border>
+
+                <!-- Comments Section Card -->
+                <Border Grid.Row="3" Style="{StaticResource CardBorderStyle}" Padding="0" Margin="24,16,24,20">
+                    <Grid>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="*" />
+                        </Grid.RowDefinitions>
+
+                        <!-- Comments Header -->
+                        <Grid Grid.Row="0" Padding="20,20,20,12">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <StackPanel Orientation="Horizontal" Spacing="10">
+                                <FontIcon Glyph="&#xE8F2;" FontSize="18" />
+                                <TextBlock Text="Comments" FontSize="16" FontWeight="SemiBold" VerticalAlignment="Center" />
+                                <Border Background="{ThemeResource LayerFillColorDefaultBrush}" CornerRadius="10" Padding="8,4">
+                                    <TextBlock Text="{Binding SelectedStory.CommentCount}" FontSize="12" FontWeight="SemiBold" />
+                                </Border>
+                            </StackPanel>
+                            <Button
+                                Grid.Column="1"
+                                Content="{Binding CommentsButtonText}"
+                                Command="{Binding ToggleCommentsCommand}"
+                                Style="{StaticResource AccentButtonStyle}" />
+                        </Grid>
+
+                        <ListView
+                            x:Name="CommentsScrollViewer"
+                            Grid.Row="1"
+                            ItemsSource="{Binding WebCommentNodes}"
+                            ItemTemplate="{StaticResource WebCommentTemplate}"
+                            SelectionMode="None"
+                            Padding="20,16,20,20"
+                            Visibility="{Binding AreCommentsVisible, Converter={StaticResource BoolToVisibilityConverter}}">
+                            <ListView.ItemContainerStyle>
+                                <Style TargetType="ListViewItem">
+                                    <Setter Property="Padding" Value="0" />
+                                    <Setter Property="Margin" Value="0" />
+                                    <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+                                </Style>
+                            </ListView.ItemContainerStyle>
+                            <ListView.ItemsPanel>
+                                <ItemsPanelTemplate>
+                                    <ItemsStackPanel />
+                                </ItemsPanelTemplate>
+                            </ListView.ItemsPanel>
+                        </ListView>
+
+                        <StackPanel Grid.Row="1" Padding="20,0,20,20"
+                                    HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="8"
+                                    Visibility="{Binding ShowNoCommentsMessage, Converter={StaticResource BoolToVisibilityConverter}}">
+                            <FontIcon Glyph="&#xE8F2;" FontSize="32" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                            <TextBlock
+                                Text="No comments yet"
+                                FontSize="14"
+                                Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                        </StackPanel>
+
+                        <StackPanel Grid.Row="1" Padding="20,0,20,20"
+                                    HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="12"
+                                    Visibility="{Binding IsCommentsLoading, Converter={StaticResource BoolToVisibilityConverter}}">
+                            <ProgressRing Width="32" Height="32" IsActive="{Binding IsCommentsLoading}" />
+                            <TextBlock
+                                Text="Loading comments..."
+                                FontSize="14"
+                                Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                        </StackPanel>
+                    </Grid>
+                </Border>
+            </Grid>
+        </Grid>
+    </Grid>
+</UserControl>
+

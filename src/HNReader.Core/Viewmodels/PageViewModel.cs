@@ -5,10 +5,7 @@ using HNReader.Core.Helpers;
 using HNReader.Core.Interfaces;
 using HNReader.Core.Models;
 using HNReader.Core.Services;
-using System.Collections.Concurrent;
-using System.Collections.Generic;
 using System.Collections.ObjectModel;
-
 
 namespace HNReader.Core.Viewmodels;
 
@@ -20,35 +17,20 @@ public abstract partial class PageViewModel : BaseViewModel
 {
     private readonly HNClient _client;
     private readonly HNWebClient _webClient;
-    private readonly IFavoritesService _favoritesService;
-    private readonly ISettingsService? _settingsService;
-    private readonly CopilotCliService? _copilotCliService;
+    private readonly Lazy<IFavoritesService> _favoritesService;
     private readonly StoryType _itemType;
-    private readonly IContentScraperService _contentScraperService;
-    private readonly IVaultFileService _vaultFileService;
     private bool _suppressSelectedStoryReset;
 
-    // Used to cancel in-flight comment fetch/parse when the user changes selection
-    // or toggles comments again. This keeps the UI responsive and prevents work
-    // for stale stories from completing late and competing for UI thread time.
     private CancellationTokenSource? _commentsLoadCts;
 
-    // In-memory comment cache shared across all PageViewModel instances.
-    // Key: story ID, Value: built comment tree roots.
-    // ConcurrentDictionary provides lock-free reads and thread-safe writes.
-    private static readonly ConcurrentDictionary<int, List<WebCommentNode>> _commentCache = new();
+    private static readonly LRUCache<int, List<WebCommentNode>> _commentCache = new(maxCapacity: 200);
 
-    // In-memory AI insight cache shared across all PageViewModel instances.
-    // Key: story ID, Value: cached insight with panel open state.
-    private static readonly ConcurrentDictionary<int, CachedStoryInsight> _insightCache = new();
-    private const int MaxCachedInsights = 50;
-
-    protected IFavoritesService FavoritesService => _favoritesService;
+    protected IFavoritesService FavoritesService => _favoritesService.Value;
     protected HNClient Client => _client;
 
     // Pagination
     private int _currentPage = 0;
-    private int PageSize => _settingsService?.StoryLimit ?? 20;
+    private const int PageSize = 20;
     private bool _hasMoreItems = true;
     public bool HasMoreItems
     {
@@ -61,18 +43,25 @@ public abstract partial class PageViewModel : BaseViewModel
                 OnPropertyChanged(nameof(HasMoreItems));
                 OnPropertyChanged(nameof(ShowLoadMoreButton));
                 OnPropertyChanged(nameof(LoadMoreFooterVisible));
+                OnPropertyChanged(nameof(IsAtEnd));
+                OnPropertyChanged(nameof(LoadMoreButtonText));
+                OnPropertyChanged(nameof(IsLoadMoreEnabled));
             }
         }
     }
 
     public bool ShowLoadMoreButton => HasMoreItems && string.IsNullOrWhiteSpace(SearchText);
 
-    public bool LoadMoreFooterVisible => IsLoadingMore || ShowLoadMoreButton;
+    public bool LoadMoreFooterVisible => IsLoadingMore || ShowLoadMoreButton || IsAtEnd;
 
-    // Only show Load More footer if there are stories and no error
-    public bool ShowLoadMoreFooter => LoadMoreFooterVisible && !HasError && Stories.Count > 0;
+    public virtual bool ShowLoadMoreFooter => LoadMoreFooterVisible && !HasError && Stories.Count > 0;
 
-    // Enable search and refresh only when there are stories
+    public bool IsAtEnd => !HasMoreItems && Stories.Count > 0 && string.IsNullOrWhiteSpace(SearchText);
+
+    public string LoadMoreButtonText => IsAtEnd ? "No more stories" : "Load more stories";
+
+    public bool IsLoadMoreEnabled => !IsLoadingMore && !IsAtEnd && string.IsNullOrWhiteSpace(SearchText);
+
     public bool HasStories => Stories.Count > 0 && !HasError;
 
     [ObservableProperty]
@@ -82,6 +71,9 @@ public abstract partial class PageViewModel : BaseViewModel
     {
         OnPropertyChanged(nameof(HasStories));
         OnPropertyChanged(nameof(ShowLoadMoreFooter));
+        OnPropertyChanged(nameof(IsAtEnd));
+        OnPropertyChanged(nameof(LoadMoreButtonText));
+        OnPropertyChanged(nameof(IsLoadMoreEnabled));
     }
 
     [ObservableProperty]
@@ -96,6 +88,7 @@ public abstract partial class PageViewModel : BaseViewModel
     partial void OnIsLoadingMoreChanged(bool value)
     {
         OnPropertyChanged(nameof(LoadMoreFooterVisible));
+        OnPropertyChanged(nameof(IsLoadMoreEnabled));
     }
 
     [ObservableProperty]
@@ -104,7 +97,6 @@ public abstract partial class PageViewModel : BaseViewModel
     [ObservableProperty]
     private Story? _selectedStory;
 
-    // Error state
     [ObservableProperty]
     private string _errorMessage = string.Empty;
 
@@ -123,7 +115,6 @@ public abstract partial class PageViewModel : BaseViewModel
     [ObservableProperty]
     private string _searchText = string.Empty;
 
-    // Web-based comments (faster approach)
     [ObservableProperty]
     private ObservableCollection<WebCommentNode> _webCommentNodes = [];
 
@@ -141,7 +132,9 @@ public abstract partial class PageViewModel : BaseViewModel
     [ObservableProperty]
     private bool _hasCommentsError;
 
-    // Copy feedback
+    [ObservableProperty]
+    private bool _hasConfirmedNoComments;
+
     [ObservableProperty]
     private string _copyFeedbackText = string.Empty;
 
@@ -171,81 +164,42 @@ public abstract partial class PageViewModel : BaseViewModel
 
     public bool CommentsContentVisible => !IsCommentsLoading && !HasCommentsError;
 
-    // Show web comments when available (preferred)
     public bool ShowWebComments => CommentsContentVisible && WebCommentNodes.Count > 0;
 
-    public bool ShowNoCommentsMessage => CommentsContentVisible && AreCommentsVisible && 
+    public bool ShowNoCommentsMessage => CommentsContentVisible && AreCommentsVisible && HasConfirmedNoComments &&
         WebCommentNodes.Count == 0;
 
-    // HN URL for selected story
     public string? SelectedStoryHnUrl => SelectedStory != null ? $"https://news.ycombinator.com/item?id={SelectedStory.Id}" : null;
 
-    // AI Insights
-    [ObservableProperty]
-    private string _insightText = string.Empty;
+    // ── Construction ─────────────────────────────────────────────────────
 
-    [ObservableProperty]
-    private bool _isInsightLoading;
-
-    [ObservableProperty]
-    private bool _hasInsight;
-
-    [ObservableProperty]
-    private bool _hasInsightError;
-
-    [ObservableProperty]
-    private string _insightErrorMessage = string.Empty;
-
-    [ObservableProperty]
-    private string _insightProgressMessage = string.Empty;
-
-    /// <summary>
-    /// Controls the AI insights panel visibility from the ViewModel.
-    /// Synced with code-behind panel state.
-    /// </summary>
-    [ObservableProperty]
-    private bool _isInsightsPanelOpen;
-
-    /// <summary>
-    /// Whether the current story has a cached insight available.
-    /// </summary>
-    public bool HasCachedInsight => SelectedStory != null && _insightCache.ContainsKey(SelectedStory.Id);
-
-    /// <summary>
-    /// Whether to show the Generate Insights button.
-    /// Hidden when insight is already generated or cached.
-    /// </summary>
-    public bool ShowGenerateInsightButton => !HasInsight && !HasCachedInsight && !IsInsightLoading;
-
-    protected PageViewModel(HNClient client, IFavoritesService favoritesService, StoryType itemType, IContentScraperService contentScraperService, ISettingsService settingsService, HNWebClient webClient, CopilotCliService copilotCliService, IVaultFileService vaultFileService)
+    protected PageViewModel(HNClient client, Lazy<IFavoritesService> favoritesService, StoryType itemType, HNWebClient webClient)
     {
         _client = client;
         _favoritesService = favoritesService;
         _itemType = itemType;
-        _settingsService = settingsService;
         _webClient = webClient;
-        _copilotCliService = copilotCliService;
-        _contentScraperService = contentScraperService;
-        _vaultFileService = vaultFileService;
     }
 
     public virtual async Task PopulateListAsync()
     {
-        // Reset all state for fresh navigation
         ResetPageState();
-        
+
         IsLoading = true;
 
         try
         {
+            // Intentionally NOT using ConfigureAwait(false) here: the await needs to
+            // resume on the UI thread so the ObservableCollection<Story> mutations below
+            // run on the dispatcher. WinUI 3 will deadlock if you update a bound
+            // collection from a thread-pool thread.
             var stories = await _client.GetStoriesAsync(_itemType, limit: PageSize);
-            
+
             foreach (var story in stories)
             {
                 Stories.Add(story);
             }
 
-            // Update favorite status for all loaded stories
             await UpdateFavoriteStatusForStoriesAsync();
 
             ApplySearchFilter();
@@ -267,32 +221,22 @@ public abstract partial class PageViewModel : BaseViewModel
         }
     }
 
-    /// <summary>
-    /// Resets all page state to prepare for fresh data load.
-    /// Called at the start of navigation to ensure clean slate.
-    /// </summary>
     private void ResetPageState()
     {
-        // Reset detail view state
         SelectedStory = null;
-        
-        // Clear collections BEFORE the try block to ensure old data doesn't show on error
+
         Stories.Clear();
         FilteredStories.Clear();
-        
-        // Reset search
+
         SearchText = string.Empty;
-        
-        // Reset error state
+
         HasError = false;
         ErrorMessage = string.Empty;
-        
-        // Reset pagination
+
         _currentPage = 0;
         HasMoreItems = true;
         IsDataVisible = false;
-        
-        // Notify dependent properties
+
         OnPropertyChanged(nameof(HasStories));
         OnPropertyChanged(nameof(ShowLoadMoreFooter));
     }
@@ -307,6 +251,7 @@ public abstract partial class PageViewModel : BaseViewModel
         try
         {
             var offset = _currentPage * PageSize;
+            // Stay on the UI thread after await — see PopulateListAsync comment.
             var stories = await _client.GetStoriesAsync(_itemType, limit: PageSize, offset: offset);
 
             foreach (var story in stories)
@@ -314,10 +259,9 @@ public abstract partial class PageViewModel : BaseViewModel
                 Stories.Add(story);
             }
 
-            // Update favorite status concurrently for newly loaded stories
             var favTasks = stories.Select(async story =>
             {
-                story.IsFavorite = await _favoritesService.ExistsAsync(story.Id);
+                story.IsFavorite = await FavoritesService.ExistsAsync(story.Id).ConfigureAwait(false);
             });
             await Task.WhenAll(favTasks);
 
@@ -420,26 +364,9 @@ public abstract partial class PageViewModel : BaseViewModel
         OnPropertyChanged(nameof(ShowNoCommentsMessage));
     }
 
-    partial void OnHasInsightChanged(bool value)
+    partial void OnHasConfirmedNoCommentsChanged(bool value)
     {
-        OnPropertyChanged(nameof(ShowGenerateInsightButton));
-    }
-
-    partial void OnIsInsightLoadingChanged(bool value)
-    {
-        OnPropertyChanged(nameof(ShowGenerateInsightButton));
-    }
-
-    /// <summary>
-    /// When panel state changes for a story with insight, update the cache.
-    /// </summary>
-    partial void OnIsInsightsPanelOpenChanged(bool value)
-    {
-        // Update the cache entry for the current story's panel state
-        if (SelectedStory != null && HasInsight && !string.IsNullOrEmpty(InsightText))
-        {
-            _insightCache[SelectedStory.Id] = new CachedStoryInsight(InsightText, value);
-        }
+        OnPropertyChanged(nameof(ShowNoCommentsMessage));
     }
 
     partial void OnSelectedStoryChanged(Story? oldValue, Story? newValue)
@@ -451,67 +378,21 @@ public abstract partial class PageViewModel : BaseViewModel
 
         CancelCommentsLoad();
 
-        // Save current insight state to cache for the old story (if insight was generated)
-        if (oldValue != null && HasInsight && !string.IsNullOrEmpty(InsightText))
-        {
-            _insightCache[oldValue.Id] = new CachedStoryInsight(InsightText, IsInsightsPanelOpen);
-            EvictOldInsightsIfNeeded();
-        }
-
-        // Only clear collections if they have items to avoid unnecessary CollectionChanged events
         if (WebCommentNodes.Count > 0)
             WebCommentNodes.Clear();
         _webCommentRoots = null;
         AreCommentsVisible = false;
         IsCommentsLoading = false;
         HasCommentsError = false;
+        HasConfirmedNoComments = false;
         CommentsErrorMessage = string.Empty;
         ShowCopyFeedback = false;
-        
-        // Reset insight state
-        InsightText = string.Empty;
-        HasInsight = false;
-        HasInsightError = false;
-        InsightErrorMessage = string.Empty;
-        InsightProgressMessage = string.Empty;
-        IsInsightLoading = false;
-
-        // Restore cached insight for the new story if available
-        if (newValue != null && _insightCache.TryGetValue(newValue.Id, out var cachedInsight))
-        {
-            InsightText = cachedInsight.InsightText;
-            HasInsight = true;
-            IsInsightsPanelOpen = cachedInsight.IsPanelOpen;
-        }
-        else
-        {
-            // No cached insight: close the panel for this story
-            IsInsightsPanelOpen = false;
-        }
 
         OnPropertyChanged(nameof(CommentsButtonText));
         OnPropertyChanged(nameof(ShowNoCommentsMessage));
         OnPropertyChanged(nameof(SelectedStoryHnUrl));
-        OnPropertyChanged(nameof(HasCachedInsight));
-        OnPropertyChanged(nameof(ShowGenerateInsightButton));
         ToggleFavoriteCommand.NotifyCanExecuteChanged();
-        _ = UpdateSelectedStoryFavoriteStateAsync();
-    }
-
-    /// <summary>
-    /// Evicts old cached insights if the cache exceeds the maximum size.
-    /// </summary>
-    private static void EvictOldInsightsIfNeeded()
-    {
-        if (_insightCache.Count > MaxCachedInsights)
-        {
-            // Remove oldest entries (FIFO approximation using first keys)
-            var keysToRemove = _insightCache.Keys.Take(_insightCache.Count - MaxCachedInsights).ToList();
-            foreach (var key in keysToRemove)
-            {
-                _insightCache.TryRemove(key, out _);
-            }
-        }
+        _ = UpdateSelectedStoryFavoriteStateAsync().ConfigureAwait(false);
     }
 
     [RelayCommand]
@@ -519,13 +400,12 @@ public abstract partial class PageViewModel : BaseViewModel
     {
         if (SelectedStory == null) return;
 
-        // If a load is currently in-flight, treat the toggle as a cancel action.
-        // The user is typically either changing their mind or about to select a
-        // different story; cancelling avoids wasted work.
         if (IsCommentsLoading)
         {
             CancelCommentsLoad();
             IsCommentsLoading = false;
+            AreCommentsVisible = false;
+            HasConfirmedNoComments = false;
             return;
         }
 
@@ -535,7 +415,6 @@ public abstract partial class PageViewModel : BaseViewModel
             return;
         }
 
-        // Check if we already have comments loaded
         if (WebCommentNodes.Count > 0)
         {
             AreCommentsVisible = true;
@@ -547,9 +426,9 @@ public abstract partial class PageViewModel : BaseViewModel
             IsCommentsLoading = true;
             AreCommentsVisible = true;
             HasCommentsError = false;
+            HasConfirmedNoComments = false;
             CommentsErrorMessage = string.Empty;
 
-            // Use the faster web-based approach if available
             if (_webClient != null)
             {
                 _commentsLoadCts = new CancellationTokenSource();
@@ -558,14 +437,20 @@ public abstract partial class PageViewModel : BaseViewModel
         }
         catch (OperationCanceledException)
         {
-            // Swallow cancellation: it is expected when the user changes selection
-            // or cancels by toggling while a load is in progress.
+            AreCommentsVisible = false;
+            HasConfirmedNoComments = false;
         }
         catch (Exception ex)
         {
             System.Diagnostics.Debug.WriteLine($"Error loading comments: {ex.Message}");
             HasCommentsError = true;
+            HasConfirmedNoComments = false;
             CommentsErrorMessage = "There was an error loading comments. Please try again.";
+            AreCommentsVisible = false;
+            _webCommentRoots = null;
+            WebCommentNodes = [];
+            OnPropertyChanged(nameof(ShowWebComments));
+            OnPropertyChanged(nameof(ShowNoCommentsMessage));
         }
         finally
         {
@@ -574,12 +459,6 @@ public abstract partial class PageViewModel : BaseViewModel
         }
     }
 
-    /// <summary>
-    /// Loads comments using the faster web scraping approach.
-    /// Uses an in-memory ConcurrentDictionary cache to avoid re-fetching
-    /// comments for stories that have already been loaded in this session.
-    /// Comments are added to the UI in batches to keep the UI thread responsive.
-    /// </summary>
     private async Task LoadCommentsFromWebAsync(CancellationToken cancellationToken)
     {
         if (SelectedStory == null || _webClient == null) return;
@@ -588,42 +467,101 @@ public abstract partial class PageViewModel : BaseViewModel
 
         cancellationToken.ThrowIfCancellationRequested();
 
-        // Check cache first
-        if (_commentCache.TryGetValue(storyId, out var cached))
+        if (_commentCache.TryGetValue(storyId, out var cached) && cached != null)
         {
             _webCommentRoots = cached;
         }
         else
         {
-            var webComments = await _webClient.GetCommentsFromWebAsync(storyId, cancellationToken);
+            var webComments = await GetCommentsWithEmptyRetryAsync(SelectedStory, storyId, cancellationToken);
 
             cancellationToken.ThrowIfCancellationRequested();
 
-            // Build tree on a background thread to avoid blocking the UI.
-            // WebCommentNode constructors now use HtmlContentHelper.ToMarkdownFast()
-            // which is significantly faster than the ReverseMarkdown path.
-            _webCommentRoots = await Task.Run(() => CommentTreeBuilder.BuildTree(webComments), cancellationToken);
+            // Tree build runs on a background thread. Each WebCommentNode ctor is
+            // cheap — the expensive HTML→Markdown conversion is deferred via a
+            // Lazy<string> and only fires when the comment is actually rendered.
+            _webCommentRoots = await Task.Factory.StartNew(
+                () => CommentTreeBuilder.BuildTree(webComments, cancellationToken),
+                cancellationToken,
+                TaskCreationOptions.DenyChildAttach,
+                TaskScheduler.Default);
 
             cancellationToken.ThrowIfCancellationRequested();
 
-            _commentCache.TryAdd(storyId, _webCommentRoots);
+            if (_webCommentRoots.Count > 0)
+            {
+                _commentCache.Set(storyId, _webCommentRoots);
+            }
+
+            // The HN Firebase API sometimes returns 0 descendants for stories
+            // (notably Ask HN posts). When that happens, get the real count from
+            // the HTML page so the badge and any other UI bound to CommentCount
+            // reflects reality. This is a fire-and-forget refresh — we don't
+            // block the comment rendering on it.
+            if (_webCommentRoots.Count > 0 && SelectedStory.Descendants is null or 0)
+            {
+                var accurateCount = await _webClient.GetAccurateCommentCountAsync(storyId, cancellationToken);
+                cancellationToken.ThrowIfCancellationRequested();
+                if (accurateCount > 0)
+                {
+                    SelectedStory.Descendants = accurateCount;
+                }
+            }
         }
 
         cancellationToken.ThrowIfCancellationRequested();
 
-        // Add comments incrementally in batches to avoid blocking the UI thread.
-        // Each batch yields back to the dispatcher so the app stays responsive.
-        await LoadCommentsBatchedAsync(_webCommentRoots, cancellationToken);
+        await LoadCommentsBatchedAsync(_webCommentRoots ?? [], cancellationToken);
     }
 
-    /// <summary>
-    /// Adds root comment nodes to the observable collection in batches.
-    /// This prevents the UI from freezing when rendering hundreds of comments
-    /// because the XAML layout engine processes each batch between frames.
-    /// </summary>
+    private async Task<List<WebComment>> GetCommentsWithEmptyRetryAsync(Story story, int storyId, CancellationToken cancellationToken)
+    {
+        var webComments = await _webClient.GetCommentsFromWebAsync(storyId, cancellationToken);
+        cancellationToken.ThrowIfCancellationRequested();
+
+        if (webComments.Count > 0)
+        {
+            return webComments;
+        }
+
+        if (story.CommentCount > 0)
+        {
+            webComments = await _webClient.GetCommentsFromWebAsync(storyId, cancellationToken);
+            cancellationToken.ThrowIfCancellationRequested();
+
+            if (webComments.Count > 0)
+            {
+                return webComments;
+            }
+
+            throw new InvalidOperationException("Hacker News reported comments, but no comments could be loaded.");
+        }
+
+        var accurateCount = await _webClient.GetAccurateCommentCountAsync(storyId, cancellationToken);
+        cancellationToken.ThrowIfCancellationRequested();
+
+        if (accurateCount > 0)
+        {
+            story.Descendants = accurateCount;
+
+            webComments = await _webClient.GetCommentsFromWebAsync(storyId, cancellationToken);
+            cancellationToken.ThrowIfCancellationRequested();
+
+            if (webComments.Count > 0)
+            {
+                return webComments;
+            }
+
+            throw new InvalidOperationException("Hacker News reported comments, but no comments could be parsed.");
+        }
+
+        HasConfirmedNoComments = true;
+        return webComments;
+    }
+
     private async Task LoadCommentsBatchedAsync(List<WebCommentNode> roots, CancellationToken cancellationToken)
     {
-        const int batchSize = 15; // Number of root comments per batch
+        const int batchSize = 15;
 
         if (roots == null || roots.Count == 0)
         {
@@ -633,7 +571,6 @@ public abstract partial class PageViewModel : BaseViewModel
             return;
         }
 
-        // Start with an empty collection so the UI can begin rendering immediately
         WebCommentNodes = [];
         OnPropertyChanged(nameof(ShowWebComments));
         OnPropertyChanged(nameof(ShowNoCommentsMessage));
@@ -648,11 +585,12 @@ public abstract partial class PageViewModel : BaseViewModel
                 WebCommentNodes.Add(roots[j]);
             }
 
-            // Yield to the UI thread so it can render the batch before adding more.
-            // Task.Delay(1) is sufficient to allow one layout pass.
             if (end < roots.Count)
             {
-                await Task.Delay(1, cancellationToken);
+                // Yield to the dispatcher so the UI can render the batch
+                // before the next one is appended. Task.Yield is free (no timer)
+                // compared to Task.Delay(1).
+                await Task.Yield();
             }
         }
 
@@ -668,7 +606,6 @@ public abstract partial class PageViewModel : BaseViewModel
         }
         catch
         {
-            // Best-effort cancellation.
         }
         finally
         {
@@ -677,10 +614,6 @@ public abstract partial class PageViewModel : BaseViewModel
         }
     }
 
-    /// <summary>
-    /// Toggles collapse state for a web comment and rebuilds the flattened projection
-    /// so child threads collapse/expand just like on the HN site.
-    /// </summary>
     public static void ToggleWebCommentCollapse(WebCommentNode node)
     {
         if (node == null) return;
@@ -704,24 +637,8 @@ public abstract partial class PageViewModel : BaseViewModel
         OnPropertyChanged(nameof(ShowNoCommentsMessage));
     }
 
-    // ── Comment Reference Lookup (for AI Insight scroll-to-comment) ──
+    // ── Favorites ────────────────────────────────────────────────────────
 
-    /// <summary>
-    /// Finds a comment node by author name and optional text snippet.
-    /// Used by the UI to scroll to a comment referenced in AI insights.
-    /// Searches depth-first through the entire comment tree.
-    /// </summary>
-    public WebCommentNode? FindCommentByAuthor(string author, string? textSnippet = null)
-    {
-        if (_webCommentRoots == null || string.IsNullOrWhiteSpace(author)) return null;
-        return FindNodeRecursive(_webCommentRoots, author.Trim(), textSnippet?.Trim());
-    }
-
-    /// <summary>
-    /// Finds a comment node by its unique numeric comment ID.
-    /// Used by the UI to scroll to a comment referenced in AI insights via hn-comment:// links.
-    /// Searches depth-first through the entire comment tree.
-    /// </summary>
     public WebCommentNode? FindCommentById(int commentId)
     {
         if (_webCommentRoots == null || commentId <= 0) return null;
@@ -732,54 +649,22 @@ public abstract partial class PageViewModel : BaseViewModel
     {
         foreach (var node in nodes)
         {
-            if (node.CommentId == commentId)
-                return node;
-
+            if (node.CommentId == commentId) return node;
             var childResult = FindNodeByIdRecursive(node.Children, commentId);
             if (childResult != null) return childResult;
         }
         return null;
     }
 
-    private static WebCommentNode? FindNodeRecursive(IEnumerable<WebCommentNode> nodes, string author, string? textSnippet)
-    {
-        foreach (var node in nodes)
-        {
-            if (string.Equals(node.By, author, StringComparison.OrdinalIgnoreCase))
-            {
-                // If a text snippet is provided, match against the comment markdown
-                if (!string.IsNullOrWhiteSpace(textSnippet))
-                {
-                    if (node.MdText != null && node.MdText.Contains(textSnippet, StringComparison.OrdinalIgnoreCase))
-                        return node;
-                }
-                else
-                {
-                    return node; // First match by author
-                }
-            }
-
-            var childResult = FindNodeRecursive(node.Children, author, textSnippet);
-            if (childResult != null) return childResult;
-        }
-        return null;
-    }
-
     /// <summary>
-    /// Highlights a comment node temporarily (for AI insight reference scrolling).
-    /// Sets IsHighlighted=true, waits, then sets it back to false.
+    /// Highlights a comment node temporarily so the user can find it in the tree.
     /// </summary>
     public async Task HighlightCommentAsync(WebCommentNode node, int durationMs = 3000)
     {
         if (node == null) return;
 
-        // Ensure comments are visible first
-        if (!AreCommentsVisible)
-        {
-            AreCommentsVisible = true;
-        }
+        if (!AreCommentsVisible) AreCommentsVisible = true;
 
-        // Ensure parent chain is expanded so the comment is visible
         EnsureCommentVisible(node);
 
         node.IsHighlighted = true;
@@ -787,14 +672,9 @@ public abstract partial class PageViewModel : BaseViewModel
         node.IsHighlighted = false;
     }
 
-    /// <summary>
-    /// Ensures a comment node is visible by expanding any collapsed ancestors.
-    /// </summary>
     private void EnsureCommentVisible(WebCommentNode target)
     {
         if (_webCommentRoots == null) return;
-
-        // Walk the tree to find the path to the target and expand collapsed nodes
         ExpandPathTo(_webCommentRoots, target);
     }
 
@@ -802,36 +682,15 @@ public abstract partial class PageViewModel : BaseViewModel
     {
         foreach (var node in nodes)
         {
-            if (ReferenceEquals(node, target))
-                return true;
+            if (ReferenceEquals(node, target)) return true;
 
             if (node.Children.Count > 0 && ExpandPathTo(node.Children, target))
             {
-                // This node is an ancestor — ensure it's expanded
-                if (node.IsCollapsed)
-                    node.IsCollapsed = false;
+                if (node.IsCollapsed) node.IsCollapsed = false;
                 return true;
             }
         }
         return false;
-    }
-
-    private static IEnumerable<WebCommentNode> FlattenVisibleWebComments(IEnumerable<WebCommentNode> nodes)
-    {
-        foreach (var node in nodes)
-        {
-            yield return node;
-
-            if (node.IsCollapsed || node.Children.Count == 0)
-            {
-                continue;
-            }
-
-            foreach (var child in FlattenVisibleWebComments(node.Children))
-            {
-                yield return child;
-            }
-        }
     }
 
     private bool CanToggleFavorite() => SelectedStory != null;
@@ -843,16 +702,15 @@ public abstract partial class PageViewModel : BaseViewModel
 
         if (IsSelectedStoryFavorite)
         {
-            await _favoritesService.RemoveAsync(SelectedStory.Id);
+            await FavoritesService.RemoveAsync(SelectedStory.Id);
             IsSelectedStoryFavorite = false;
         }
         else
         {
-            await _favoritesService.AddOrUpdateAsync(SelectedStory);
+            await FavoritesService.AddOrUpdateAsync(SelectedStory);
             IsSelectedStoryFavorite = true;
         }
 
-        // Update the favorite status in the story - it will notify the UI automatically
         if (SelectedStory != null)
         {
             SelectedStory.IsFavorite = IsSelectedStoryFavorite;
@@ -867,133 +725,25 @@ public abstract partial class PageViewModel : BaseViewModel
             return;
         }
 
-        IsSelectedStoryFavorite = await _favoritesService.ExistsAsync(SelectedStory.Id);
+        IsSelectedStoryFavorite = await FavoritesService.ExistsAsync(SelectedStory.Id);
         SelectedStory.IsFavorite = IsSelectedStoryFavorite;
     }
 
-    /// <summary>
-    /// Updates the IsFavorite property for all stories in the list.
-    /// Uses parallel async operations for better performance with many stories.
-    /// </summary>
     private async Task UpdateFavoriteStatusForStoriesAsync()
     {
-        // Batch all favorite checks concurrently instead of serial awaits.
-        // This is safe because IFavoritesService reads are thread-safe.
         var tasks = Stories.Select(async story =>
         {
-            story.IsFavorite = await _favoritesService.ExistsAsync(story.Id);
+            story.IsFavorite = await FavoritesService.ExistsAsync(story.Id);
         });
         await Task.WhenAll(tasks);
     }
 
     private static bool StoryMatchesFilter(Story story, string term)
     {
-        if (string.IsNullOrWhiteSpace(term))
-        {
-            return true;
-        }
+        if (string.IsNullOrWhiteSpace(term)) return true;
 
         return (!string.IsNullOrEmpty(story.Title) && story.Title.Contains(term, StringComparison.OrdinalIgnoreCase)) ||
                (!string.IsNullOrEmpty(story.By) && story.By.Contains(term, StringComparison.OrdinalIgnoreCase)) ||
                (!string.IsNullOrEmpty(story.RootDomain) && story.RootDomain.Contains(term, StringComparison.OrdinalIgnoreCase));
-    }
-
-    // ── AI Insights ─────────────────────────────────────────────────────
-
-    [RelayCommand]
-    private async Task GenerateInsightAsync()
-    {
-        var selectedStory = SelectedStory;
-        if (selectedStory == null || _copilotCliService == null) return;
-
-        IsInsightLoading = true;
-        HasInsight = false;
-        HasInsightError = false;
-        InsightErrorMessage = string.Empty;
-        InsightText = string.Empty;
-        InsightProgressMessage = "Preparing...";
-        OnPropertyChanged(nameof(ShowGenerateInsightButton));
-
-        // Create progress handler for UI updates
-        var progress = new Progress<InsightGenerationProgress>(OnInsightProgressReported);
-
-        try
-        {
-            string storyContent;
-            var storyTitle = selectedStory.Title ?? string.Empty;
-
-            InsightProgressMessage = "Scraping article content...";
-
-            if (IsAskOrShowStory(storyTitle))
-            {
-                storyContent = selectedStory.Text ?? string.Empty;
-            }
-            else if (!string.IsNullOrWhiteSpace(selectedStory.Url))
-            {
-                storyContent = await _contentScraperService.GetPlainTextAsync(selectedStory.Url);
-            }
-            else
-            {
-                storyContent = string.Empty;
-            }
-
-            InsightProgressMessage = "Loading comments...";
-
-            var storyComments = await _webClient.GetCommentsFromWebAsync(selectedStory.Id);
-            var commentNodes = CommentTreeBuilder.BuildTree(storyComments);
-            var storyBy = string.IsNullOrWhiteSpace(selectedStory.By) ? "unknown" : selectedStory.By;
-            var storyMarkdownStr = MarkdownGenerator.BuildStoryMarkdown(new StoryData(selectedStory.Id, storyTitle, storyBy, storyContent), commentNodes);
-            
-            InsightProgressMessage = "Saving to knowledge vault...";
-            await _vaultFileService.SaveStoryMarkdownAsync(selectedStory.Id, storyMarkdownStr);
-
-            var result = await _copilotCliService.GenerateStoryInsightAsync(selectedStory.Id, progress);
-
-            InsightText = result;
-            HasInsight = true;
-            IsInsightsPanelOpen = true;
-
-            // Cache the insight for this story
-            _insightCache[selectedStory.Id] = new CachedStoryInsight(result, true);
-            EvictOldInsightsIfNeeded();
-        }
-        catch (OperationCanceledException)
-        {
-            // User cancelled — no action needed
-            InsightProgressMessage = string.Empty;
-        }
-        catch (Exception ex)
-        {
-            HasInsightError = true;
-            InsightErrorMessage = ex.Message;
-            InsightProgressMessage = string.Empty;
-        }
-        finally
-        {
-            IsInsightLoading = false;
-            OnPropertyChanged(nameof(HasCachedInsight));
-            OnPropertyChanged(nameof(ShowGenerateInsightButton));
-        }
-    }
-
-    /// <summary>
-    /// Handles progress updates from insight generation.
-    /// </summary>
-    private void OnInsightProgressReported(InsightGenerationProgress progressUpdate)
-    {
-        InsightProgressMessage = progressUpdate.Message;
-
-        if (progressUpdate.HasError)
-        {
-            HasInsightError = true;
-            InsightErrorMessage = progressUpdate.ErrorMessage ?? "Unknown error";
-        }
-    }
-
-    // method to check if a story is ask, hn, or show type (i.e. has no external URL) using the story title string as the method arguement
-    public static bool IsAskOrShowStory(string title)
-    {
-        var lowerTitle = title.ToLowerInvariant();
-        return lowerTitle.StartsWith("ask hn") || lowerTitle.StartsWith("show hn");
     }
 }

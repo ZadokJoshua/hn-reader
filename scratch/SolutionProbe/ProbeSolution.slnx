@@ -1,0 +1,7 @@
+<Solution>
+  <Project Path="../../src/HNReader.Core/HNReader.Core.csproj" />
+  <Project Path="../../src/HNReader.WinUI/HNReader.WinUI.csproj" />
+  <Project Path="../../tests/HNReader.Core.Tests/HNReader.Core.Tests.csproj" />
+  <Project Path="../../tests/HNReader.Integration.Tests/HNReader.Integration.Tests.csproj" />
+  <Project Path="../../tests/HNReader.WinUI.Tests/HNReader.WinUI.Tests.csproj" />
+</Solution>
