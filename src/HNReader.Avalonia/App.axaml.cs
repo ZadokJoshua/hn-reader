@@ -164,6 +164,7 @@ public partial class App : Application
 
         services.AddSingleton<PageFactory>();
         services.AddSingleton<NavigationService>();
+        services.AddSingleton<NotificationService>();
 
         services.AddTransient<TopView>();
         services.AddTransient<NewView>();

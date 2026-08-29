@@ -1,6 +1,7 @@
 <UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:ui="using:FluentAvalonia.UI.Controls"
+             xmlns:asyncImageLoader="clr-namespace:AsyncImageLoader;assembly=AsyncImageLoader.Avalonia"
              x:Class="HNReader.Avalonia.Controls.StoryListItemControl">
 
     <Grid x:Name="RootGrid" Margin="12,10" ColumnDefinitions="Auto,*,Auto" Opacity="0">
@@ -34,10 +35,14 @@
                        TextWrapping="Wrap"
                        TextTrimming="CharacterEllipsis" />
 
-            <TextBlock FontSize="12"
-                       Classes="MetaText"
-                       Text="{Binding RootDomain, RelativeSource={RelativeSource AncestorType=UserControl}}"
-                       IsVisible="{Binding RootDomain, RelativeSource={RelativeSource AncestorType=UserControl}, Converter={StaticResource BoolToVisibilityConverter}}" />
+            <StackPanel Orientation="Horizontal" Spacing="6"
+                        IsVisible="{Binding RootDomain, RelativeSource={RelativeSource AncestorType=UserControl}, Converter={StaticResource BoolToVisibilityConverter}}">
+                <Image Width="14" Height="14"
+                       asyncImageLoader:ImageLoader.Source="{Binding RootDomain, RelativeSource={RelativeSource AncestorType=UserControl}, Converter={StaticResource RootDomainToFaviconUrlConverter}}" />
+                <TextBlock FontSize="12"
+                           Classes="MetaText"
+                           Text="{Binding RootDomain, RelativeSource={RelativeSource AncestorType=UserControl}}" />
+            </StackPanel>
 
             <StackPanel Orientation="Horizontal" Spacing="16">
                 <StackPanel Orientation="Horizontal" Spacing="4">

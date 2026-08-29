@@ -5,7 +5,9 @@
         Icon="avares://HNReader.Avalonia/Assets/HnReaderIcon.ico"
         Title="HN Reader"
         Width="1400" Height="900"
-        WindowStartupLocation="CenterScreen">
+        WindowStartupLocation="CenterScreen"
+        TransparencyLevelHint="Mica,AcrylicBlur,None"
+        Background="Transparent">
 
     <ui:NavigationView x:Name="NavView"
                         PaneDisplayMode="Left"

@@ -2,7 +2,9 @@ using System;
 using System.ComponentModel;
 using System.Net;
 using System.Threading.Tasks;
+using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Controls.Primitives;
 using Avalonia.Input.Platform;
 using Avalonia.Interactivity;
 using HNReader.Avalonia.Services;
@@ -16,11 +18,47 @@ namespace HNReader.Avalonia.Controls;
 public partial class StoriesPageControl : UserControl
 {
     private PageViewModel? _currentViewModel;
+    private ScrollViewer? _storiesScrollViewer;
+
+    // How close to the bottom (in pixels) triggers an auto load-more, so it
+    // fires a little before the user hits the literal end of the list.
+    private const double InfiniteScrollThreshold = 200;
 
     public StoriesPageControl()
     {
         InitializeComponent();
         DataContextChanged += OnDataContextChanged;
+        StoriesList.TemplateApplied += OnStoriesListTemplateApplied;
+    }
+
+    private void OnStoriesListTemplateApplied(object? sender, TemplateAppliedEventArgs e)
+    {
+        if (_storiesScrollViewer != null)
+        {
+            _storiesScrollViewer.ScrollChanged -= OnStoriesListScrollChanged;
+        }
+
+        _storiesScrollViewer = e.NameScope.Find<ScrollViewer>("PART_ScrollViewer");
+        if (_storiesScrollViewer != null)
+        {
+            _storiesScrollViewer.ScrollChanged += OnStoriesListScrollChanged;
+        }
+    }
+
+    private async void OnStoriesListScrollChanged(object? sender, ScrollChangedEventArgs e)
+    {
+        if (_storiesScrollViewer == null || DataContext is not PageViewModel vm) return;
+        if (!vm.LoadMoreStoriesCommand.CanExecute(null)) return;
+
+        var distanceFromBottom = _storiesScrollViewer.Extent.Height
+            - _storiesScrollViewer.Viewport.Height
+            - _storiesScrollViewer.Offset.Y;
+
+        if (distanceFromBottom > InfiniteScrollThreshold) return;
+
+        await ExecuteUiActionSafelyAsync(
+            () => vm.LoadMoreStoriesCommand.ExecuteAsync(null),
+            "auto-loading more stories on scroll");
     }
 
     private void OnDataContextChanged(object? sender, EventArgs args)
@@ -45,7 +83,14 @@ public partial class StoriesPageControl : UserControl
     {
     }
 
+    /// <summary>
+    /// Called by MainWindow in response to the Ctrl+F shortcut.
+    /// </summary>
+    public void FocusSearchBox() => SearchBox.Focus();
+
     private ILogger? ResolveLogger() => (global::Avalonia.Application.Current as App)?.Services.GetService<ILogger>();
+
+    private NotificationService? ResolveNotifications() => (global::Avalonia.Application.Current as App)?.Services.GetService<NotificationService>();
 
     private async Task ExecuteUiActionSafelyAsync(Func<Task> action, string operationName)
     {
@@ -97,7 +142,7 @@ public partial class StoriesPageControl : UserControl
                 await clipboard.SetTextAsync(vm.SelectedStory.Url);
             }
 
-            await vm.ShowCopyFeedbackAsync("Link copied!");
+            ResolveNotifications()?.ShowSuccess("Link copied to clipboard");
         }, "copying link");
     }
 
@@ -113,8 +158,22 @@ public partial class StoriesPageControl : UserControl
                 await clipboard.SetTextAsync(vm.SelectedStory.Title);
             }
 
-            await vm.ShowCopyFeedbackAsync("Title copied!");
+            ResolveNotifications()?.ShowSuccess("Title copied to clipboard");
         }, "copying title");
+    }
+
+    private async void OnToggleFavoriteClicked(object? sender, RoutedEventArgs e)
+    {
+        await ExecuteUiActionSafelyAsync(async () =>
+        {
+            if (DataContext is not PageViewModel vm) return;
+            if (!vm.ToggleFavoriteCommand.CanExecute(null)) return;
+
+            await vm.ToggleFavoriteCommand.ExecuteAsync(null);
+
+            ResolveNotifications()?.ShowSuccess(
+                vm.IsSelectedStoryFavorite ? "Added to favourites" : "Removed from favourites");
+        }, "toggling favorite");
     }
 
     private async void OnViewOnHnClicked(object? sender, RoutedEventArgs e)

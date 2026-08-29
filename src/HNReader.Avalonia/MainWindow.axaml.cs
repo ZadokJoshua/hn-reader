@@ -1,8 +1,10 @@
 using System;
 using Avalonia.Controls;
+using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Threading;
 using FluentAvalonia.UI.Controls;
+using HNReader.Avalonia.Controls;
 using HNReader.Avalonia.Services;
 using HNReader.Core.Enums;
 using HNReader.Core.Viewmodels;
@@ -46,9 +48,12 @@ public partial class MainWindow : Window
                 _navigationService.Initialize(ContentHost);
                 _navigationService.Navigated += OnPageNavigated;
             }
+
+            app.Services.GetService<NotificationService>()?.Attach(this);
         }
 
         NavView.SelectionChanged += NavView_SelectionChanged;
+        KeyDown += OnKeyDown;
 
         SetPagesTags();
 
@@ -65,6 +70,36 @@ public partial class MainWindow : Window
     }
 
     private void OnPageNavigated(ApplicationPages page) => SelectNavItemForPage(page);
+
+    private void OnKeyDown(object? sender, KeyEventArgs e)
+    {
+        if (e.KeyModifiers != KeyModifiers.Control) return;
+
+        var page = e.Key switch
+        {
+            Key.D1 or Key.NumPad1 => ApplicationPages.New,
+            Key.D2 or Key.NumPad2 => ApplicationPages.Top,
+            Key.D3 or Key.NumPad3 => ApplicationPages.Best,
+            Key.D4 or Key.NumPad4 => ApplicationPages.Show,
+            Key.D5 or Key.NumPad5 => ApplicationPages.Ask,
+            Key.D6 or Key.NumPad6 => ApplicationPages.Favourites,
+            _ => (ApplicationPages?)null
+        };
+
+        if (page != null)
+        {
+            _navigationService?.NavigateToPage(page.Value);
+            e.Handled = true;
+            return;
+        }
+
+        if (e.Key == Key.F)
+        {
+            var storiesControl = (ContentHost.Content as ContentControl)?.Content as StoriesPageControl;
+            storiesControl?.FocusSearchBox();
+            e.Handled = true;
+        }
+    }
 
     private void SetPagesTags()
     {

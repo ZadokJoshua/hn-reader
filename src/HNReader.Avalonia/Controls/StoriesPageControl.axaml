@@ -77,7 +77,8 @@
                                FontWeight="SemiBold"
                                Text="{Binding PageTitle, FallbackValue='Stories'}" />
                     <Grid Margin="0,4,0,0" ColumnDefinitions="*,Auto">
-                        <TextBox Grid.Column="0"
+                        <TextBox x:Name="SearchBox"
+                                 Grid.Column="0"
                                  Watermark="Search stories..."
                                  Text="{Binding SearchText, Mode=TwoWay}"
                                  IsEnabled="{Binding HasStories}" />
@@ -285,52 +286,34 @@
 
                 <!-- Action Buttons -->
                 <Border Grid.Row="2" Classes="CardBorderStyle" Padding="16" Margin="24,16,24,0">
-                    <Grid ColumnDefinitions="*,Auto">
-                        <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled" HorizontalAlignment="Stretch">
-                            <StackPanel Orientation="Horizontal" Spacing="8" Margin="10">
-                                <Button Command="{Binding ToggleFavoriteCommand}" Classes="ActionButtonStyle" ToolTip.Tip="Add to favorites">
-                                    <StackPanel Orientation="Horizontal" Spacing="6">
-                                        <TextBlock Text="{Binding FavoriteButtonText}" FontSize="12" />
-                                    </StackPanel>
-                                </Button>
-                                <Button Click="OnCopyLinkClicked" Classes="ActionButtonStyle" ToolTip.Tip="Copy link to clipboard">
-                                    <StackPanel Orientation="Horizontal" Spacing="6">
-                                        <ui:SymbolIcon Symbol="Link" FontSize="14" />
-                                        <TextBlock Text="Copy Link" FontSize="12" />
-                                    </StackPanel>
-                                </Button>
-                                <Button Click="OnCopyTitleClicked" Classes="ActionButtonStyle" ToolTip.Tip="Copy title to clipboard">
-                                    <StackPanel Orientation="Horizontal" Spacing="6">
-                                        <ui:SymbolIcon Symbol="Copy" FontSize="14" />
-                                        <TextBlock Text="Copy Title" FontSize="12" />
-                                    </StackPanel>
-                                </Button>
-                                <Button Click="OnViewOnHnClicked" Classes="ActionButtonStyle" ToolTip.Tip="View on Hacker News">
-                                    <StackPanel Orientation="Horizontal" Spacing="6">
-                                        <ui:SymbolIcon Symbol="Go" FontSize="14" />
-                                        <TextBlock Text="View on HN" FontSize="12" />
-                                    </StackPanel>
-                                </Button>
-                            </StackPanel>
-                        </ScrollViewer>
-
-                        <Border Grid.Column="1"
-                                VerticalAlignment="Center"
-                                Background="{DynamicResource SystemFillColorSuccessBackgroundBrush}"
-                                CornerRadius="4"
-                                Padding="10,6"
-                                Opacity="{Binding ShowCopyFeedback, Converter={StaticResource BoolToOpacityConverter}}"
-                                IsHitTestVisible="{Binding ShowCopyFeedback}">
-                            <Border.Transitions>
-                                <Transitions>
-                                    <DoubleTransition Property="Opacity" Duration="0:0:0.2" Easing="CubicEaseOut" />
-                                </Transitions>
-                            </Border.Transitions>
-                            <StackPanel Orientation="Horizontal" Spacing="6">
-                                <TextBlock Text="{Binding CopyFeedbackText}" FontSize="12" Foreground="{DynamicResource SystemFillColorSuccessBrush}" />
-                            </StackPanel>
-                        </Border>
-                    </Grid>
+                    <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled" HorizontalAlignment="Stretch">
+                        <StackPanel Orientation="Horizontal" Spacing="8" Margin="10">
+                            <Button Click="OnToggleFavoriteClicked" Classes="ActionButtonStyle" ToolTip.Tip="Add to favorites">
+                                <StackPanel Orientation="Horizontal" Spacing="6">
+                                    <ui:SymbolIcon Symbol="Star" FontSize="14" />
+                                    <TextBlock Text="{Binding FavoriteButtonText}" FontSize="12" />
+                                </StackPanel>
+                            </Button>
+                            <Button Click="OnCopyLinkClicked" Classes="ActionButtonStyle" ToolTip.Tip="Copy link to clipboard">
+                                <StackPanel Orientation="Horizontal" Spacing="6">
+                                    <ui:SymbolIcon Symbol="Link" FontSize="14" />
+                                    <TextBlock Text="Copy Link" FontSize="12" />
+                                </StackPanel>
+                            </Button>
+                            <Button Click="OnCopyTitleClicked" Classes="ActionButtonStyle" ToolTip.Tip="Copy title to clipboard">
+                                <StackPanel Orientation="Horizontal" Spacing="6">
+                                    <ui:SymbolIcon Symbol="Copy" FontSize="14" />
+                                    <TextBlock Text="Copy Title" FontSize="12" />
+                                </StackPanel>
+                            </Button>
+                            <Button Click="OnViewOnHnClicked" Classes="ActionButtonStyle" ToolTip.Tip="View on Hacker News">
+                                <StackPanel Orientation="Horizontal" Spacing="6">
+                                    <ui:SymbolIcon Symbol="Go" FontSize="14" />
+                                    <TextBlock Text="View on HN" FontSize="12" />
+                                </StackPanel>
+                            </Button>
+                        </StackPanel>
+                    </ScrollViewer>
                 </Border>
 
                 <!-- Comments Section -->

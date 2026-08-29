@@ -51,6 +51,7 @@
             <conv:HighlightBorderThicknessConverter x:Key="HighlightBorderThicknessConverter" />
             <conv:StringToUriConverter x:Key="StringToUriConverter" />
             <conv:BoolToOpacityConverter x:Key="BoolToOpacityConverter" />
+            <conv:RootDomainToFaviconUrlConverter x:Key="RootDomainToFaviconUrlConverter" />
         </ResourceDictionary>
     </Application.Resources>
 </Application>
