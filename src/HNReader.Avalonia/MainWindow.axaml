@@ -1,0 +1,63 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:ui="using:FluentAvalonia.UI.Controls"
+        x:Class="HNReader.Avalonia.MainWindow"
+        Icon="avares://HNReader.Avalonia/Assets/HnReaderIcon.ico"
+        Title="HN Reader"
+        Width="1400" Height="900"
+        WindowStartupLocation="CenterScreen">
+
+    <ui:NavigationView x:Name="NavView"
+                        PaneDisplayMode="Left"
+                        IsPaneToggleButtonVisible="True"
+                        IsBackButtonVisible="False"
+                        IsSettingsVisible="False"
+                        OpenPaneLength="200">
+
+        <ui:NavigationView.MenuItems>
+            <ui:NavigationViewItemHeader Content="Browse" />
+            <ui:NavigationViewItem x:Name="NewPageNavItem" Content="New Stories">
+                <ui:NavigationViewItem.IconSource>
+                    <ui:SymbolIconSource Symbol="Clock" />
+                </ui:NavigationViewItem.IconSource>
+            </ui:NavigationViewItem>
+            <ui:NavigationViewItem x:Name="TopPageNavItem" Content="Top Stories">
+                <ui:NavigationViewItem.IconSource>
+                    <ui:SymbolIconSource Symbol="Up" />
+                </ui:NavigationViewItem.IconSource>
+            </ui:NavigationViewItem>
+            <ui:NavigationViewItem x:Name="BestPageNavItem" Content="Best Stories">
+                <ui:NavigationViewItem.IconSource>
+                    <ui:SymbolIconSource Symbol="Star" />
+                </ui:NavigationViewItem.IconSource>
+            </ui:NavigationViewItem>
+            <ui:NavigationViewItem x:Name="ShowPageNavItem" Content="Show HN">
+                <ui:NavigationViewItem.IconSource>
+                    <ui:SymbolIconSource Symbol="Bookmark" />
+                </ui:NavigationViewItem.IconSource>
+            </ui:NavigationViewItem>
+            <ui:NavigationViewItem x:Name="AskPageNavItem" Content="Ask HN">
+                <ui:NavigationViewItem.IconSource>
+                    <ui:SymbolIconSource Symbol="Help" />
+                </ui:NavigationViewItem.IconSource>
+            </ui:NavigationViewItem>
+
+            <ui:NavigationViewItemHeader Content="Personal" />
+            <ui:NavigationViewItem x:Name="FavouritesPageNavItem" Content="Favorites">
+                <ui:NavigationViewItem.IconSource>
+                    <ui:SymbolIconSource Symbol="OutlineStar" />
+                </ui:NavigationViewItem.IconSource>
+            </ui:NavigationViewItem>
+        </ui:NavigationView.MenuItems>
+
+        <ui:NavigationView.FooterMenuItems>
+            <ui:NavigationViewItem x:Name="SettingsPageNavItem" Content="Settings">
+                <ui:NavigationViewItem.IconSource>
+                    <ui:SymbolIconSource Symbol="Settings" />
+                </ui:NavigationViewItem.IconSource>
+            </ui:NavigationViewItem>
+        </ui:NavigationView.FooterMenuItems>
+
+        <ContentControl x:Name="ContentHost" />
+    </ui:NavigationView>
+</Window>

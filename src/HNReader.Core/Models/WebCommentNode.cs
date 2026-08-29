@@ -17,13 +17,30 @@ public class WebCommentNode : INotifyPropertyChanged
         _depth = comment.Depth;
         CommentId = comment.Id;
 
+        var sourceText = comment?.Text;
         // Defer HTML→Markdown conversion until the comment is actually rendered.
         // For long threads this avoids running the regex on hundreds of comments
         // that are collapsed or off-screen — the Lazy<string> only fires on first
         // access of MdText (typically when the MarkdownTextBlock is realized).
+        // ExecutionAndPublication ensures a failed conversion caches its fallback
+        // rather than re-throwing on every property access (which would happen
+        // under MarkdownTextBlock's rapid container recycling during fast scroll).
         _mdTextLazy = new Lazy<string?>(
-            () => HtmlContentHelper.ToMarkdown(comment?.Text),
-            LazyThreadSafetyMode.PublicationOnly);
+            () =>
+            {
+                try
+                {
+                    return HtmlContentHelper.ToMarkdown(sourceText);
+                }
+                catch
+                {
+                    // Never let a single malformed comment crash the whole tree
+                    // rendering. Fall back to the raw text so the user still
+                    // sees something.
+                    return sourceText;
+                }
+            },
+            LazyThreadSafetyMode.ExecutionAndPublication);
 
         By = comment?.By ?? string.Empty;
         TimeAgo = comment?.TimeAgo;
@@ -96,9 +113,19 @@ public class WebCommentNode : INotifyPropertyChanged
     /// The comment body, converted from HN HTML to Markdown on first access.
     /// Subsequent reads return the cached value. Conversion is skipped for any
     /// comment whose MarkdownTextBlock is never realized (collapsed parents,
-    /// off-screen items in a virtualized list, etc.).
+    /// off-screen items in a virtualized list, etc.). Any exception thrown
+    /// during the conversion is caught inside the lazy factory and replaced
+    /// with a safe fallback so a single bad comment cannot crash the app
+    /// under MarkdownTextBlock's rapid container recycling during fast scroll.
     /// </summary>
-    public string? MdText => _mdTextLazy.Value;
+    public string? MdText
+    {
+        get
+        {
+            try { return _mdTextLazy.Value; }
+            catch { return null; }
+        }
+    }
 
     public string CollapseIcon => IsCollapsed ? "\uE76C" : "\uE76B";
 

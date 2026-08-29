@@ -1,8 +1,8 @@
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using HNReader.Core.Constants;
 using HNReader.Core.Enums;
 using HNReader.Core.Interfaces;
-using HNReader.Core.Services;
 
 namespace HNReader.Core.Viewmodels;
 
@@ -14,6 +14,8 @@ public partial class SettingsViewModel : BaseViewModel
     private int selectedThemeIndex;
 
     public string[] ThemeOptions { get; } = ["Auto", "Light", "Dark"];
+
+    public bool CanReportBug => !string.IsNullOrWhiteSpace(AppFileNames.BUG_REPORT_URL);
 
     public SettingsViewModel(ISettingsService settingsService)
     {

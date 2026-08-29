@@ -1,12 +1,13 @@
 using System;
 using System.ComponentModel;
-using System.Diagnostics;
 using System.Net;
 using System.Threading.Tasks;
 using HNReader.Core.Models;
+using HNReader.Core.Services.Logging;
 using HNReader.Core.Viewmodels;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml;
+using Microsoft.Extensions.DependencyInjection;
 using Windows.ApplicationModel.DataTransfer;
 using CommunityToolkit.WinUI.UI.Controls;
 using Windows.System;
@@ -47,7 +48,9 @@ public sealed partial class StoriesPageControl : UserControl
     {
     }
 
-    private static async Task ExecuteUiActionSafelyAsync(Func<Task> action, string operationName)
+    private ILogger? ResolveLogger() => (Application.Current as App)?.Services.GetService<ILogger>();
+
+    private async Task ExecuteUiActionSafelyAsync(Func<Task> action, string operationName)
     {
         try
         {
@@ -55,7 +58,7 @@ public sealed partial class StoriesPageControl : UserControl
         }
         catch (Exception ex)
         {
-            Debug.WriteLine($"Error during {operationName}: {ex}");
+            ResolveLogger()?.LogError("StoriesPageControl", $"Error during {operationName}", ex);
         }
     }
 
@@ -157,7 +160,7 @@ public sealed partial class StoriesPageControl : UserControl
         }
         catch (Exception ex)
         {
-            Debug.WriteLine($"Exception in OnToggleWebCommentCollapseClicked: {ex}");
+            ResolveLogger()?.LogError("StoriesPageControl", "Exception in OnToggleWebCommentCollapseClicked", ex);
             throw;
         }
     }
@@ -216,7 +219,7 @@ public sealed partial class StoriesPageControl : UserControl
         }
         catch (Exception ex)
         {
-            Debug.WriteLine($"Error sharing: {ex}");
+            ResolveLogger()?.LogError("StoriesPageControl", "Error sharing", ex);
         }
     }
 

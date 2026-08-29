@@ -1,4 +1,5 @@
 using HNReader.Core.Enums;
+using HNReader.Core.Services.Logging;
 using HNReader.Core.Viewmodels;
 using HNReader.WinUI.Services;
 using Microsoft.Extensions.DependencyInjection;
@@ -7,6 +8,7 @@ using Microsoft.UI;
 using Microsoft.UI.Windowing;
 using System;
 using System.IO;
+using System.Runtime.InteropServices;
 using WinRT.Interop;
 using HNReader.Core.Interfaces;
 
@@ -17,8 +19,15 @@ public sealed partial class MainWindow : Window
     private readonly MainViewModel _mainViewModel;
     private readonly NavigationService? _navigationService;
     private readonly ISettingsService? _settingsService;
+    private readonly ILogger? _logger;
     private AppWindow? _appWindow;
     private bool _suppressNavSelection;
+
+    // P/Invoke to get primary screen size for centering (best-effort)
+    [DllImport("user32.dll")]
+    private static extern int GetSystemMetrics(int nIndex);
+    private const int SM_CXSCREEN = 0;
+    private const int SM_CYSCREEN = 1;
 
     public MainWindow(MainViewModel mainViewModel)
     {
@@ -42,7 +51,20 @@ public sealed partial class MainWindow : Window
             {
                 _settingsService.ThemeChanged += OnThemeChanged;
             }
+
+            _logger = currentApp.Services.GetService<ILogger>();
         }
+
+        // Flush the logger cleanly on shutdown so the file handle is released
+        // and the last entries are on disk.
+        Closed += async (_, __) =>
+        {
+            if (_logger is not null)
+            {
+                try { await _logger.FlushAsync(); }
+                catch { /* best effort during shutdown */ }
+            }
+        };
 
         SelectNavItemForPage(ApplicationPages.New);
         _navigationService?.NavigateToPage(ApplicationPages.New);
@@ -88,8 +110,25 @@ public sealed partial class MainWindow : Window
 
         if (_appWindow != null)
         {
-            _appWindow.Resize(new Windows.Graphics.SizeInt32(1400, 900));
+            var desiredSize = new Windows.Graphics.SizeInt32(1400, 900);
+            _appWindow.Resize(desiredSize);
             _appWindow.Title = "HN Reader";
+
+            // Center the window on the primary screen (best-effort)
+            try
+            {
+                int screenWidth = GetSystemMetrics(SM_CXSCREEN);
+                int screenHeight = GetSystemMetrics(SM_CYSCREEN);
+
+                int x = Math.Max(0, (screenWidth - desiredSize.Width) / 2);
+                int y = Math.Max(0, (screenHeight - desiredSize.Height) / 2);
+
+                _appWindow.Move(new Windows.Graphics.PointInt32(x, y));
+            }
+            catch
+            {
+                // Best-effort centering; swallow exceptions to avoid breaking startup.
+            }
 
             var iconPath = Path.Combine(AppContext.BaseDirectory, "HnReaderIcon.ico");
             if (File.Exists(iconPath))

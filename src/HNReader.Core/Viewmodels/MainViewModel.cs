@@ -1,6 +1,7 @@
 ﻿using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using HNReader.Core.Interfaces;
+using HNReader.Core.Services.Logging;
 using System.Threading;
 
 namespace HNReader.Core.Viewmodels;
@@ -8,6 +9,7 @@ namespace HNReader.Core.Viewmodels;
 public partial class MainViewModel : BaseViewModel
 {
     private readonly Lazy<IFavoritesService> _favoritesService;
+    private readonly ILogger? _logger;
 
     [ObservableProperty]
     private int _favoriteCount;
@@ -18,9 +20,10 @@ public partial class MainViewModel : BaseViewModel
     [ObservableProperty]
     private bool _hasStatusMessage;
 
-    public MainViewModel(Lazy<IFavoritesService> favoritesService)
+    public MainViewModel(Lazy<IFavoritesService> favoritesService, ILogger? logger = null)
     {
         _favoritesService = favoritesService;
+        _logger = logger;
     }
 
     private async void OnFavoritesChanged(object? sender, System.EventArgs e)
@@ -39,7 +42,7 @@ public partial class MainViewModel : BaseViewModel
         }
         catch (System.Exception ex)
         {
-            System.Diagnostics.Debug.WriteLine($"Export failed: {ex.Message}");
+            _logger?.LogError("MainViewModel", "Export failed", ex);
             SetStatus($"Export failed: {ex.Message}", isError: true);
         }
     }
@@ -54,7 +57,7 @@ public partial class MainViewModel : BaseViewModel
         }
         catch (System.Exception ex)
         {
-            System.Diagnostics.Debug.WriteLine($"Import failed: {ex.Message}");
+            _logger?.LogError("MainViewModel", "Import failed", ex);
             SetStatus($"Import failed: {ex.Message}", isError: true);
         }
     }

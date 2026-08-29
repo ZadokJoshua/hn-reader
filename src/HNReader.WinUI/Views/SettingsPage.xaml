@@ -107,6 +107,55 @@
                     </StackPanel>
                 </Border>
 
+                <!-- Diagnostics -->
+                <Border Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                        CornerRadius="8"
+                        Padding="24">
+                    <StackPanel Spacing="20">
+                        <StackPanel Orientation="Horizontal" Spacing="12">
+                            <Border Background="{ThemeResource AccentFillColorDefaultBrush}"
+                                    CornerRadius="6"
+                                    Padding="8">
+                                <FontIcon Glyph="&#xE7F4;" FontSize="16" Foreground="White" />
+                            </Border>
+                            <TextBlock Text="Diagnostics" Style="{StaticResource SubtitleTextBlockStyle}" VerticalAlignment="Center" />
+                        </StackPanel>
+
+                        <StackPanel Spacing="8">
+                            <TextBlock Text="Export logs or report a problem"
+                                       Style="{StaticResource BodyStrongTextBlockStyle}" />
+                            <TextBlock Text="Logs are kept for 7 days (max 10 files, 2 MB each) in your temp folder. Use 'Export logs' to bundle them into a zip you can attach to a bug report."
+                                       Style="{StaticResource CaptionTextBlockStyle}"
+                                       Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                       TextWrapping="Wrap" />
+
+                            <StackPanel Orientation="Horizontal" Spacing="8" Margin="0,8,0,0">
+                                <Button x:Name="ExportLogsButton"
+                                        Click="ExportLogsButton_Click">
+                                    <StackPanel Orientation="Horizontal" Spacing="6">
+                                        <FontIcon Glyph="&#xE74E;" FontSize="14" />
+                                        <TextBlock Text="Export logs" />
+                                    </StackPanel>
+                                </Button>
+                                <Button x:Name="ReportBugButton"
+                                        Click="ReportBugButton_Click"
+                                        IsEnabled="{Binding CanReportBug}"
+                                        ToolTipService.ToolTip="Bug-report URL not configured yet">
+                                    <StackPanel Orientation="Horizontal" Spacing="6">
+                                        <FontIcon Glyph="&#xE783;" FontSize="14" />
+                                        <TextBlock Text="Report a bug" />
+                                    </StackPanel>
+                                </Button>
+                            </StackPanel>
+
+                            <InfoBar x:Name="DiagnosticsInfoBar"
+                                     IsOpen="False"
+                                     IsClosable="True"
+                                     Margin="0,8,0,0" />
+                        </StackPanel>
+                    </StackPanel>
+                </Border>
+
                 <!-- About -->
                 <Border Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
                         CornerRadius="8"
@@ -122,15 +171,15 @@
                         </StackPanel>
 
                         <StackPanel Orientation="Horizontal" Spacing="16">
-                            <Border Background="#FF6600" CornerRadius="8" Padding="14,12">
-                                <TextBlock Text="HN" FontWeight="Bold" FontSize="18" Foreground="White" />
-                            </Border>
-                            <StackPanel VerticalAlignment="Center" Spacing="2">
-                                <TextBlock Text="HN Reader" Style="{StaticResource BodyStrongTextBlockStyle}" FontSize="16" />
-                                <TextBlock Text="Version 2.0.0"
-                                           Style="{StaticResource CaptionTextBlockStyle}"
-                                           Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
-                            </StackPanel>
+                            <Image Source="ms-appx:///Assets/Square44x44Logo.scale-200.png"
+                                   Width="56"
+                                   Height="56"
+                                   Stretch="Uniform"
+                                   VerticalAlignment="Center" />
+                            <TextBlock Text="HN Reader"
+                                       Style="{StaticResource BodyStrongTextBlockStyle}"
+                                       FontSize="16"
+                                       VerticalAlignment="Center" />
                         </StackPanel>
 
                         <TextBlock Text="A fast, modern Hacker News reader for Windows. Browse Top/New/Best/Ask/Show stories, read full comment threads, and save your favourites."

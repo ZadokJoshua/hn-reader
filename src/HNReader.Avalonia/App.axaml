@@ -1,0 +1,56 @@
+<Application xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:styling="using:FluentAvalonia.Styling"
+             xmlns:conv="using:HNReader.Avalonia.Converters"
+             x:Class="HNReader.Avalonia.App"
+             RequestedThemeVariant="Default"
+             Name="HN Reader">
+
+    <Application.DataTemplates>
+    </Application.DataTemplates>
+
+    <Application.Styles>
+        <styling:FluentAvaloniaTheme />
+        <StyleInclude Source="avares://HNReader.Avalonia/Styles/Resources.axaml" />
+    </Application.Styles>
+
+    <Application.Resources>
+        <ResourceDictionary>
+            <!-- HN Reader brand accent, pinned so the app looks the same regardless of
+                 the OS accent-colour setting. -->
+            <Color x:Key="HNReaderAccent">#FFFF6600</Color>
+            <SolidColorBrush x:Key="HNReaderAccentBrush" Color="{StaticResource HNReaderAccent}" />
+
+            <!-- Override FluentAvalonia's accent-fill tokens so the brand colour propagates to
+                 AccentButtonStyle, NavigationView selection indicator, ProgressRing, etc. -->
+            <Color x:Key="SystemAccentColor">#FFFF6600</Color>
+            <Color x:Key="SystemAccentColorLight1">#FFFF6600</Color>
+            <Color x:Key="SystemAccentColorLight2">#FFFF7A26</Color>
+            <Color x:Key="SystemAccentColorLight3">#FFFF944D</Color>
+            <Color x:Key="SystemAccentColorDark1">#FFE65C00</Color>
+            <Color x:Key="SystemAccentColorDark2">#FFCC5200</Color>
+            <Color x:Key="SystemAccentColorDark3">#FFB34700</Color>
+
+            <SolidColorBrush x:Key="AccentFillColorDefaultBrush" Color="{StaticResource HNReaderAccent}" />
+            <SolidColorBrush x:Key="AccentFillColorSecondaryBrush" Color="{StaticResource HNReaderAccent}" Opacity="0.9" />
+            <SolidColorBrush x:Key="AccentFillColorTertiaryBrush" Color="{StaticResource HNReaderAccent}" Opacity="0.8" />
+            <SolidColorBrush x:Key="AccentFillColorDisabledBrush" Color="{StaticResource HNReaderAccent}" Opacity="0.4" />
+            <SolidColorBrush x:Key="AccentTextFillColorPrimaryBrush" Color="{StaticResource HNReaderAccent}" />
+            <SolidColorBrush x:Key="AccentTextFillColorSecondaryBrush" Color="{StaticResource HNReaderAccent}" Opacity="0.9" />
+            <SolidColorBrush x:Key="AccentTextFillColorDisabledBrush" Color="{StaticResource HNReaderAccent}" Opacity="0.4" />
+            <SolidColorBrush x:Key="TextOnAccentFillColorPrimaryBrush" Color="#FFFFFFFF" />
+            <SolidColorBrush x:Key="TextOnAccentFillColorSecondaryBrush" Color="#FFFFFFFF" Opacity="0.9" />
+            <SolidColorBrush x:Key="TextOnAccentFillColorDisabledBrush" Color="#FFFFFFFF" Opacity="0.7" />
+
+            <conv:BoolToVisibilityConverter x:Key="BoolToVisibilityConverter" />
+            <conv:BoolToCollapseTextConverter x:Key="BoolToCollapseTextConverter" />
+            <conv:DepthToVisibilityConverter x:Key="DepthToVisibilityConverter" />
+            <conv:DepthToMarginConverter x:Key="DepthToMarginConverter" />
+            <conv:RelativeTimeConverter x:Key="RelativeTimeConverter" />
+            <conv:HighlightBorderBrushConverter x:Key="HighlightBorderBrushConverter" />
+            <conv:HighlightBorderThicknessConverter x:Key="HighlightBorderThicknessConverter" />
+            <conv:StringToUriConverter x:Key="StringToUriConverter" />
+            <conv:BoolToOpacityConverter x:Key="BoolToOpacityConverter" />
+        </ResourceDictionary>
+    </Application.Resources>
+</Application>

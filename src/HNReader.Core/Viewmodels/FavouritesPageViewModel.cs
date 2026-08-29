@@ -3,6 +3,7 @@ using HNReader.Core.Enums;
 using HNReader.Core.Interfaces;
 using HNReader.Core.Models;
 using HNReader.Core.Services;
+using HNReader.Core.Services.Logging;
 using System;
 
 namespace HNReader.Core.Viewmodels;
@@ -29,8 +30,8 @@ public partial class FavouritesPageViewModel : PageViewModel, IDisposable
 
     public override string EmptyStateGlyph => "\uE734";
 
-    public FavouritesPageViewModel(HNClient client, Lazy<IFavoritesService> favoritesService, HNWebClient webClient)
-        : base(client, favoritesService, StoryType.Top, webClient)
+    public FavouritesPageViewModel(HNClient client, Lazy<IFavoritesService> favoritesService, HNWebClient webClient, ILogger? logger = null)
+        : base(client, favoritesService, StoryType.Top, webClient, logger)
     {
         PageTitle = "Favourites";
         FavoritesService.FavoritesChanged += OnFavoritesChanged;
@@ -68,7 +69,7 @@ public partial class FavouritesPageViewModel : PageViewModel, IDisposable
         }
         catch (Exception ex)
         {
-            System.Diagnostics.Debug.WriteLine($"Error loading favourites: {ex.Message}");
+            Logger?.LogError("FavouritesPageViewModel", "Error loading favourites", ex);
             HasError = true;
             ErrorMessage = "There was an error loading favourites.";
             UpdateEmptyState();
@@ -95,7 +96,7 @@ public partial class FavouritesPageViewModel : PageViewModel, IDisposable
         }
         catch (Exception ex)
         {
-            System.Diagnostics.Debug.WriteLine($"Error refreshing favourites after change event: {ex}");
+            Logger?.LogError("FavouritesPageViewModel", "Error refreshing favourites after change event", ex);
         }
     }
 

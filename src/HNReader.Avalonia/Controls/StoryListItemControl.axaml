@@ -1,0 +1,73 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:ui="using:FluentAvalonia.UI.Controls"
+             x:Class="HNReader.Avalonia.Controls.StoryListItemControl">
+
+    <Grid x:Name="RootGrid" Margin="12,10" ColumnDefinitions="Auto,*,Auto" Opacity="0">
+        <Grid.Transitions>
+            <Transitions>
+                <DoubleTransition Property="Opacity" Duration="0:0:0.2" Easing="CubicEaseOut" />
+            </Transitions>
+        </Grid.Transitions>
+
+        <!-- Score Badge -->
+        <Border Grid.Column="0"
+                Classes="ScoreBadge"
+                VerticalAlignment="Center"
+                MinWidth="50"
+                Margin="0,0,12,0">
+            <StackPanel HorizontalAlignment="Center" Spacing="2">
+                <ui:SymbolIcon Symbol="Up" FontSize="14" Foreground="#FF6600" HorizontalAlignment="Center" />
+                <TextBlock Text="{Binding Score, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                           FontWeight="SemiBold"
+                           FontSize="13"
+                           HorizontalAlignment="Center" />
+            </StackPanel>
+        </Border>
+
+        <!-- Content -->
+        <StackPanel Grid.Column="1" Spacing="6" VerticalAlignment="Center">
+            <TextBlock FontSize="14"
+                       FontWeight="SemiBold"
+                       MaxLines="2"
+                       Text="{Binding Title, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                       TextWrapping="Wrap"
+                       TextTrimming="CharacterEllipsis" />
+
+            <TextBlock FontSize="12"
+                       Classes="MetaText"
+                       Text="{Binding RootDomain, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                       IsVisible="{Binding RootDomain, RelativeSource={RelativeSource AncestorType=UserControl}, Converter={StaticResource BoolToVisibilityConverter}}" />
+
+            <StackPanel Orientation="Horizontal" Spacing="16">
+                <StackPanel Orientation="Horizontal" Spacing="4">
+                    <ui:SymbolIcon Symbol="Comment" FontSize="12" Classes="MetaIcon" />
+                    <TextBlock FontSize="12" Classes="MetaText"
+                               Text="{Binding Descendants, RelativeSource={RelativeSource AncestorType=UserControl}}" />
+                </StackPanel>
+
+                <StackPanel Orientation="Horizontal" Spacing="4">
+                    <ui:SymbolIcon Symbol="Clock" FontSize="12" Classes="MetaIcon" />
+                    <TextBlock FontSize="12" Classes="MetaText"
+                               Text="{Binding TimeAgo, RelativeSource={RelativeSource AncestorType=UserControl}}" />
+                </StackPanel>
+
+                <StackPanel Orientation="Horizontal" Spacing="4">
+                    <ui:SymbolIcon Symbol="Contact" FontSize="12" Classes="MetaIcon" />
+                    <TextBlock FontSize="12" Classes="MetaText"
+                               Text="{Binding By, RelativeSource={RelativeSource AncestorType=UserControl}}" />
+                </StackPanel>
+            </StackPanel>
+        </StackPanel>
+
+        <!-- Favorite Indicator -->
+        <ui:SymbolIcon Grid.Column="2"
+                       Symbol="Star"
+                       FontSize="16"
+                       Foreground="#FF6600"
+                       VerticalAlignment="Top"
+                       Margin="8,2,0,0"
+                       ToolTip.Tip="Favorited"
+                       IsVisible="{Binding IsFavorite, RelativeSource={RelativeSource AncestorType=UserControl}}" />
+    </Grid>
+</UserControl>

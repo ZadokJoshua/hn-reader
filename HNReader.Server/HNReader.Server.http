@@ -1,0 +1,6 @@
+@HNReader.Server_HostAddress = http://localhost:5282
+
+GET https://hn.algolia.com/api/v1/search?tags=story&numericFilters=created_at_i>1785000000&page=0
+Accept: application/json
+
+###

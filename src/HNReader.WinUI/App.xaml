@@ -10,6 +10,34 @@
             <ResourceDictionary.MergedDictionaries>
                 <XamlControlsResources xmlns="using:Microsoft.UI.Xaml.Controls" />
             </ResourceDictionary.MergedDictionaries>
+
+            <!-- HN Reader brand accent. Pinned to #FF6600 so the app looks the same
+                 on every Windows colour setting, irrespective of the system accent. -->
+            <Color x:Key="HNReaderAccent">#FFFF6600</Color>
+            <SolidColorBrush x:Key="HNReaderAccentBrush" Color="{StaticResource HNReaderAccent}" />
+
+            <!-- SystemAccentColor is read directly by some controls (Hyperlink etc.).
+                 Set it at the app level so the whole theme tree derives from it. -->
+            <Color x:Key="SystemAccentColor">#FFFF6600</Color>
+
+            <!-- Override the WinUI accent-fill tokens so the brand colour propagates to
+                 AccentButtonStyle (Export favourites), NavigationView selection indicator,
+                 ProgressRing, Slider, ToggleSwitch, CheckBox, RadioButton, Hyperlink, etc.
+                 Default/Secondary/Tertiary/Disabled match the opacities WinUI uses
+                 internally so hover/pressed/disabled states still look natural. -->
+            <SolidColorBrush x:Key="AccentFillColorDefaultBrush"   Color="{StaticResource HNReaderAccent}" />
+            <SolidColorBrush x:Key="AccentFillColorSecondaryBrush" Color="{StaticResource HNReaderAccent}" Opacity="0.9" />
+            <SolidColorBrush x:Key="AccentFillColorTertiaryBrush"  Color="{StaticResource HNReaderAccent}" Opacity="0.8" />
+            <SolidColorBrush x:Key="AccentFillColorDisabledBrush"  Color="{StaticResource HNReaderAccent}" Opacity="0.4" />
+            <SolidColorBrush x:Key="AccentTextFillColorPrimaryBrush"   Color="{StaticResource HNReaderAccent}" />
+            <SolidColorBrush x:Key="AccentTextFillColorSecondaryBrush" Color="{StaticResource HNReaderAccent}" Opacity="0.9" />
+            <SolidColorBrush x:Key="AccentTextFillColorDisabledBrush"  Color="{StaticResource HNReaderAccent}" Opacity="0.4" />
+            <SolidColorBrush x:Key="TextOnAccentFillColorDefaultBrush"   Color="#FFFFFFFF" />
+            <SolidColorBrush x:Key="TextOnAccentFillColorSecondaryBrush" Color="#FFFFFFFF" Opacity="0.9" />
+            <SolidColorBrush x:Key="TextOnAccentFillColorDisabledBrush"  Color="#FFFFFFFF" Opacity="0.7" />
+            <Color x:Key="SystemAccentColorLight2">#FFFF6600</Color>
+            <Color x:Key="SystemAccentColorLight3">#FFFF6600</Color>
+
             <converters:BoolToVisibilityConverter x:Key="BoolToVisibilityConverter" />
             <converters:BoolToCollapseTextConverter x:Key="BoolToCollapseTextConverter" />
             <converters:DepthToVisibilityConverter x:Key="DepthToVisibilityConverter" />

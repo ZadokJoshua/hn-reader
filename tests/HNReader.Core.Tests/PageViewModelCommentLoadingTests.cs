@@ -14,6 +14,7 @@ public class PageViewModelCommentLoadingTests
         var webHandler = new SequenceResponseHandler();
         webHandler.Enqueue(HttpStatusCode.OK, EmptyItemHtml);
         webHandler.Enqueue(HttpStatusCode.OK, CommentItemHtml);
+        webHandler.Enqueue(HttpStatusCode.OK, CommentItemHtml);
         var vm = CreateViewModel(webHandler);
         vm.SelectedStory = new Story { Id = 10001, Title = "Large thread", Descendants = 350 };
 
@@ -23,11 +24,12 @@ public class PageViewModelCommentLoadingTests
         Assert.True(vm.AreCommentsVisible);
         Assert.False(vm.ShowNoCommentsMessage);
         Assert.Single(vm.WebCommentNodes);
-        Assert.Equal(2, webHandler.RequestCount);
+        // 1: initial comment fetch (empty), 2: accurate count (1 row), 3: final retry (1 row).
+        Assert.Equal(3, webHandler.RequestCount);
     }
 
     [Fact]
-    public async Task ToggleCommentsAsync_WhenReportedCommentsStayEmpty_ShowsErrorAndDoesNotCacheEmptyResult()
+    public async Task ToggleCommentsAsync_WhenPageHasNoComments_ShowsNoCommentsMessage()
     {
         var webHandler = new SequenceResponseHandler();
         webHandler.Enqueue(HttpStatusCode.OK, EmptyItemHtml);
@@ -37,20 +39,16 @@ public class PageViewModelCommentLoadingTests
 
         await vm.ToggleCommentsCommand.ExecuteAsync(null);
 
-        Assert.True(vm.HasCommentsError);
-        Assert.False(vm.AreCommentsVisible);
-        Assert.False(vm.ShowNoCommentsMessage);
-        Assert.Empty(vm.WebCommentNodes);
-        Assert.Equal(2, webHandler.RequestCount);
-
-        webHandler.Enqueue(HttpStatusCode.OK, CommentItemHtml);
-
-        await vm.ToggleCommentsCommand.ExecuteAsync(null);
-
+        // The page actually has no comments (accurate count = 0), even though
+        // the API claimed descendants > 0. We should show the "no comments"
+        // message, not an error.
         Assert.False(vm.HasCommentsError);
         Assert.True(vm.AreCommentsVisible);
-        Assert.Single(vm.WebCommentNodes);
-        Assert.Equal(3, webHandler.RequestCount);
+        Assert.True(vm.HasConfirmedNoComments);
+        Assert.True(vm.ShowNoCommentsMessage);
+        Assert.Empty(vm.WebCommentNodes);
+        // 1: initial comment fetch (empty), 2: accurate count (0). No final retry.
+        Assert.Equal(2, webHandler.RequestCount);
     }
 
     [Fact]

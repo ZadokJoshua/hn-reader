@@ -1,6 +1,7 @@
 ﻿using HNReader.Core.Enums;
 using HNReader.Core.Interfaces;
 using HNReader.Core.Services;
+using HNReader.Core.Services.Logging;
 using HNReader.Core.Viewmodels;
 using HNReader.WinUI.Factories;
 using HNReader.WinUI.Services;
@@ -13,12 +14,14 @@ using System.IO;
 using System.Net;
 using System.Net.Http;
 using System.Threading;
+using System.Threading.Tasks;
 
 namespace HNReader.WinUI;
 
 public partial class App : Application
 {
     private Window? _window;
+    private ILogger? _logger;
 
     public IServiceProvider Services { get; }
 
@@ -26,7 +29,16 @@ public partial class App : Application
 
     public App()
     {
-        Services = ConfigureServices();
+        // Logger is constructed first so it can capture any later DI/startup
+        // failures. It is owned by App and disposed on process exit.
+        _logger = new Logger();
+        _logger.LogInformation("App", "process starting",
+            context: null);
+
+        AppDomain.CurrentDomain.UnhandledException += OnDomainUnhandledException;
+        TaskScheduler.UnobservedTaskException += OnUnobservedTaskException;
+
+        Services = ConfigureServices(_logger);
         InitializeComponent();
 
         UnhandledException += OnUnhandledException;
@@ -64,20 +76,82 @@ public partial class App : Application
     {
         e.Handled = true;
 
-        var errorMessage = e.Exception?.ToString() ?? "An unknown error occurred.";
-        System.Diagnostics.Debug.WriteLine($"[UNHANDLED EXCEPTION] {errorMessage}");
+        // Capture the full exception details (type, message, stack, inner) into
+        // the log before we do anything else. If the dispatcher is the thing
+        // that's about to die, this still gives us a complete diagnostic record.
+        var fullText = e.Exception?.ToString() ?? "An unknown error occurred.";
+        _logger?.LogError("App.UnhandledXaml", e.Exception?.Message ?? "Unhandled XAML exception", e.Exception);
 
-        _window?.DispatcherQueue?.TryEnqueue(async () =>
+        // Flush synchronously via .Wait — the logger is thread-safe and the
+        // background consumer can't drain its channel if the dispatcher dies.
+        try { _logger?.FlushAsync().GetAwaiter().GetResult(); }
+        catch { /* best effort */ }
+
+        try
         {
-            await ErrorDialogService.ShowErrorAsync(
-                "Unexpected Error",
-                $"An unexpected error occurred:\n\n{e.Message}");
-        });
+            _window?.DispatcherQueue?.TryEnqueue(async () =>
+            {
+                try
+                {
+                    await ErrorDialogService.ShowErrorAsync(
+                        "Unexpected Error",
+                        $"An unexpected error occurred:\n\n{e.Message}\n\nDetails were written to the log file.",
+                        logFilePath: _logger?.CurrentLogFilePath);
+                }
+                catch
+                {
+                    // Even the error dialog failed — don't let it recurse.
+                }
+            });
+        }
+        catch
+        {
+            // Dispatcher itself unavailable; log entry above is the only record.
+        }
     }
 
-    private static ServiceProvider ConfigureServices()
+    private void OnDomainUnhandledException(object sender, System.UnhandledExceptionEventArgs e)
+    {
+        try
+        {
+            if (e.ExceptionObject is Exception ex)
+            {
+                _logger?.LogFatal("App.Domain", "unhandled AppDomain exception", ex);
+            }
+            else
+            {
+                _logger?.LogFatal("App.Domain", "unhandled non-Exception AppDomain error");
+            }
+
+            // Block briefly so the log entry reaches disk before the process
+            // is torn down by the AppDomain unhandled-exception escalation.
+            try { _logger?.FlushAsync().GetAwaiter().GetResult(); }
+            catch { /* best effort */ }
+        }
+        catch
+        {
+            // Last resort — never throw from an unhandled-exception handler.
+        }
+    }
+
+    private void OnUnobservedTaskException(object? sender, UnobservedTaskExceptionEventArgs e)
+    {
+        try
+        {
+            _logger?.LogError("App.TaskScheduler", "unobserved task exception", e.Exception);
+            e.SetObserved();
+        }
+        catch
+        {
+            // Never throw from this handler.
+        }
+    }
+
+    private static ServiceProvider ConfigureServices(ILogger logger)
     {
         var services = new ServiceCollection();
+
+        services.AddSingleton<ILogger>(logger);
 
         var localFolder = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "HNReader");
         Directory.CreateDirectory(localFolder);
@@ -89,17 +163,43 @@ public partial class App : Application
         services.AddSingleton<Lazy<IFavoritesService>>(_ => new Lazy<IFavoritesService>(
             () => new FavoritesService(favouritesDbPath),
             LazyThreadSafetyMode.ExecutionAndPublication));
-        services.AddSingleton<ISettingsService>(_ => new SettingsService(localFolder));
+        services.AddSingleton<ISettingsService>(_ => new SettingsService(localFolder, logger));
 
-        services.AddTransient<TopPageViewModel>();
-        services.AddTransient<NewPageViewModel>();
-        services.AddTransient<FavouritesPageViewModel>();
-        services.AddTransient<BestPageViewModel>();
-        services.AddTransient<ShowPageViewModel>();
-        services.AddTransient<AskPageViewModel>();
+        services.AddTransient<TopPageViewModel>(sp => new TopPageViewModel(
+            sp.GetRequiredService<HNClient>(),
+            sp.GetRequiredService<Lazy<IFavoritesService>>(),
+            sp.GetRequiredService<HNWebClient>(),
+            sp.GetService<ILogger>()));
+        services.AddTransient<NewPageViewModel>(sp => new NewPageViewModel(
+            sp.GetRequiredService<HNClient>(),
+            sp.GetRequiredService<Lazy<IFavoritesService>>(),
+            sp.GetRequiredService<HNWebClient>(),
+            sp.GetService<ILogger>()));
+        services.AddTransient<FavouritesPageViewModel>(sp => new FavouritesPageViewModel(
+            sp.GetRequiredService<HNClient>(),
+            sp.GetRequiredService<Lazy<IFavoritesService>>(),
+            sp.GetRequiredService<HNWebClient>(),
+            sp.GetService<ILogger>()));
+        services.AddTransient<BestPageViewModel>(sp => new BestPageViewModel(
+            sp.GetRequiredService<HNClient>(),
+            sp.GetRequiredService<Lazy<IFavoritesService>>(),
+            sp.GetRequiredService<HNWebClient>(),
+            sp.GetService<ILogger>()));
+        services.AddTransient<ShowPageViewModel>(sp => new ShowPageViewModel(
+            sp.GetRequiredService<HNClient>(),
+            sp.GetRequiredService<Lazy<IFavoritesService>>(),
+            sp.GetRequiredService<HNWebClient>(),
+            sp.GetService<ILogger>()));
+        services.AddTransient<AskPageViewModel>(sp => new AskPageViewModel(
+            sp.GetRequiredService<HNClient>(),
+            sp.GetRequiredService<Lazy<IFavoritesService>>(),
+            sp.GetRequiredService<HNWebClient>(),
+            sp.GetService<ILogger>()));
         services.AddSingleton<SettingsViewModel>();
 
-        services.AddSingleton<MainViewModel>();
+        services.AddSingleton<MainViewModel>(sp => new MainViewModel(
+            sp.GetRequiredService<Lazy<IFavoritesService>>(),
+            sp.GetService<ILogger>()));
 
         services.AddSingleton<PageFactory>();
         services.AddSingleton<NavigationService>();
@@ -112,24 +212,33 @@ public partial class App : Application
         services.AddTransient<AskPage>();
         services.AddTransient<SettingsPage>();
 
-        services.AddHttpClient<HNClient>(client =>
+        services.AddHttpClient<HNClient>((sp, client) =>
         {
             client.BaseAddress = new Uri("https://hacker-news.firebaseio.com/v0/");
             // 15s is enough for HN's fast API. Anything longer usually means a
             // network problem we'd rather surface to the user than wait on.
             client.Timeout = TimeSpan.FromSeconds(15);
-        }).ConfigurePrimaryHttpMessageHandler(() => new HttpClientHandler
+        })
+        .ConfigurePrimaryHttpMessageHandler(() => new HttpClientHandler
         {
             AutomaticDecompression = DecompressionMethods.All
         });
+        // Decorate the registered HNClient so the resolved instance also gets
+        // an ILogger injected via the secondary ctor.
+        services.AddTransient<HNClient>(sp => new HNClient(
+            sp.GetRequiredService<IHttpClientFactory>().CreateClient(nameof(HNClient)),
+            sp.GetService<ILogger>()));
 
-        services.AddHttpClient<HNWebClient>(client =>
+        services.AddHttpClient<HNWebClient>((sp, client) =>
         {
             client.BaseAddress = new Uri("https://news.ycombinator.com/");
             // Comment scraping can be slower — bump this one.
             client.Timeout = TimeSpan.FromSeconds(30);
             client.DefaultRequestHeaders.Add("User-Agent", "HNReader/1.0");
         });
+        services.AddTransient<HNWebClient>(sp => new HNWebClient(
+            sp.GetRequiredService<IHttpClientFactory>().CreateClient(nameof(HNWebClient)),
+            sp.GetService<ILogger>()));
 
         services.AddSingleton<Func<ApplicationPages, BaseViewModel>>(x => name => name switch
         {
@@ -160,11 +269,16 @@ public partial class App : Application
 
     protected override void OnLaunched(LaunchActivatedEventArgs args)
     {
+        _logger?.LogInformation("App", "OnLaunched");
+
         var mainViewModel = Services.GetRequiredService<MainViewModel>();
         _window = new MainWindow(mainViewModel);
         CurrentWindow = _window;
         _window.Activate();
 
         ApplyCurrentTheme();
+
+        _logger?.LogInformation("App", "main window activated",
+            context: null);
     }
 }

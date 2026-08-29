@@ -54,14 +54,6 @@
             SelectionChanged="NavView_SelectionChanged">
 
             <NavigationView.MenuItems>
-                <!-- Personal Section -->
-                <NavigationViewItemHeader Content="Personal" />
-                <NavigationViewItem x:Name="FavouritesPageNavItem" Content="Favorites">
-                    <NavigationViewItem.Icon>
-                        <FontIcon Glyph="&#xE728;" />
-                    </NavigationViewItem.Icon>
-                </NavigationViewItem>
-
                 <!-- Browse Section -->
                 <NavigationViewItemHeader Content="Browse" />
                 <NavigationViewItem x:Name="NewPageNavItem" Content="New Stories">
@@ -87,6 +79,14 @@
                 <NavigationViewItem x:Name="AskPageNavItem" Content="Ask HN">
                     <NavigationViewItem.Icon>
                         <FontIcon Glyph="&#xE897;" />
+                    </NavigationViewItem.Icon>
+                </NavigationViewItem>
+
+                <!-- Personal Section -->
+                <NavigationViewItemHeader Content="Personal" />
+                <NavigationViewItem x:Name="FavouritesPageNavItem" Content="Favorites">
+                    <NavigationViewItem.Icon>
+                        <FontIcon Glyph="&#xE728;" />
                     </NavigationViewItem.Icon>
                 </NavigationViewItem>
             </NavigationView.MenuItems>

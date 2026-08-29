@@ -1,0 +1,406 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:controls="using:HNReader.Avalonia.Controls"
+             xmlns:ui="using:FluentAvalonia.UI.Controls"
+             xmlns:models="using:HNReader.Core.Models"
+             xmlns:md="using:Markdown.Avalonia"
+             x:Class="HNReader.Avalonia.Controls.StoriesPageControl">
+
+    <UserControl.Resources>
+        <SolidColorBrush x:Key="HNAccentBrush" Color="#FF6600" />
+
+        <DataTemplate x:Key="WebCommentTemplate" x:DataType="models:WebCommentNode">
+            <Grid Margin="{Binding Depth, Converter={StaticResource DepthToMarginConverter}}"
+                  ColumnDefinitions="20,*">
+
+                <Border Grid.Column="0"
+                        Width="2"
+                        Background="{DynamicResource CardStrokeColorDefaultBrush}"
+                        HorizontalAlignment="Center"
+                        VerticalAlignment="Stretch"
+                        CornerRadius="1"
+                        Opacity="0.85"
+                        IsVisible="{Binding Depth, Converter={StaticResource DepthToVisibilityConverter}}" />
+
+                <StackPanel Grid.Column="1" Margin="4,0,0,0">
+                    <Border Classes="CommentCardBorderStyle"
+                            BorderBrush="{Binding IsHighlighted, Converter={StaticResource HighlightBorderBrushConverter}}"
+                            BorderThickness="{Binding IsHighlighted, Converter={StaticResource HighlightBorderThicknessConverter}}"
+                            Tag="{Binding CommentId}">
+                        <StackPanel Spacing="8">
+                            <Grid ColumnDefinitions="*,Auto">
+                                <StackPanel Orientation="Horizontal" Spacing="6">
+                                    <TextBlock FontWeight="SemiBold"
+                                               Text="{Binding By}"
+                                               FontSize="13"
+                                               Foreground="{StaticResource HNAccentBrush}"
+                                               VerticalAlignment="Center" />
+                                    <TextBlock Text="•" FontSize="11" Foreground="{DynamicResource TextFillColorTertiaryBrush}" VerticalAlignment="Center" />
+                                    <TextBlock Text="{Binding TimeAgo}" Classes="MetaText" />
+                                </StackPanel>
+                                <Button Grid.Column="1"
+                                        Tag="{Binding}"
+                                        Click="OnToggleWebCommentCollapseClicked"
+                                        Classes="CollapseButtonStyle"
+                                        ToolTip.Tip="Collapse/Expand">
+                                    <TextBlock Text="{Binding IsCollapsed, Converter={StaticResource BoolToCollapseTextConverter}}"
+                                               FontSize="11"
+                                               Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+                                </Button>
+                            </Grid>
+
+                            <md:MarkdownScrollViewer Markdown="{Binding MdText, Mode=OneWay}"
+                                                      IsVisible="{Binding IsCollapsed, Converter={StaticResource BoolToVisibilityConverter}, ConverterParameter=Inverse}" />
+                        </StackPanel>
+                    </Border>
+
+                    <ItemsControl ItemsSource="{Binding Children}"
+                                  ItemTemplate="{StaticResource WebCommentTemplate}"
+                                  IsVisible="{Binding IsCollapsed, Converter={StaticResource BoolToVisibilityConverter}, ConverterParameter=Inverse}" />
+                </StackPanel>
+            </Grid>
+        </DataTemplate>
+    </UserControl.Resources>
+
+    <Grid Background="{DynamicResource LayerFillColorDefaultBrush}" ColumnDefinitions="400,*">
+
+        <!-- Stories List Panel -->
+        <Border Grid.Column="0"
+                BorderBrush="{DynamicResource DividerStrokeColorDefaultBrush}"
+                BorderThickness="0,0,1,0">
+        <Grid RowDefinitions="Auto,*">
+
+            <!-- Header -->
+            <Border Grid.Row="0" Padding="20,16" Background="{DynamicResource LayerFillColorAltBrush}">
+                <StackPanel Spacing="12">
+                    <TextBlock FontSize="20"
+                               FontWeight="SemiBold"
+                               Text="{Binding PageTitle, FallbackValue='Stories'}" />
+                    <Grid Margin="0,4,0,0" ColumnDefinitions="*,Auto">
+                        <TextBox Grid.Column="0"
+                                 Watermark="Search stories..."
+                                 Text="{Binding SearchText, Mode=TwoWay}"
+                                 IsEnabled="{Binding HasStories}" />
+                        <Button Grid.Column="0"
+                                HorizontalAlignment="Right"
+                                VerticalAlignment="Center"
+                                Margin="0,0,6,0"
+                                Padding="6"
+                                Background="Transparent"
+                                BorderThickness="0"
+                                Command="{Binding ClearSearchCommand}"
+                                ToolTip.Tip="Clear search"
+                                IsVisible="{Binding SearchText, Converter={StaticResource BoolToVisibilityConverter}}">
+                            <ui:SymbolIcon Symbol="Dismiss" FontSize="12" Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+                        </Button>
+                    </Grid>
+                </StackPanel>
+            </Border>
+
+            <!-- Stories List -->
+            <Grid Grid.Row="1" RowDefinitions="*,Auto">
+                <ListBox x:Name="StoriesList"
+                         Grid.Row="0"
+                         ItemsSource="{Binding FilteredStories}"
+                         SelectedItem="{Binding SelectedStory, Mode=TwoWay}"
+                         SelectionMode="Single"
+                         Padding="8"
+                         IsVisible="{Binding IsLoading, Converter={StaticResource BoolToVisibilityConverter}, ConverterParameter=Inverse}">
+                    <ListBox.ItemTemplate>
+                        <DataTemplate x:DataType="models:Story">
+                            <controls:StoryListItemControl
+                                Title="{Binding Title}"
+                                Score="{Binding DisplayScore}"
+                                Descendants="{Binding CommentCount}"
+                                TimeAgo="{Binding TimeAgo}"
+                                By="{Binding By}"
+                                IsFavorite="{Binding IsFavorite}"
+                                RootDomain="{Binding RootDomain}" />
+                        </DataTemplate>
+                    </ListBox.ItemTemplate>
+                </ListBox>
+
+                <Grid Grid.Row="1" Margin="8,16" IsVisible="{Binding ShowLoadMoreFooter, Converter={StaticResource BoolToVisibilityConverter}}">
+                    <Button x:Name="LoadMoreButton"
+                            Content="{Binding LoadMoreButtonText}"
+                            Click="OnLoadMoreClicked"
+                            HorizontalAlignment="Stretch"
+                            Padding="16,12"
+                            IsVisible="{Binding IsLoadMoreEnabled, Converter={StaticResource BoolToVisibilityConverter}}" />
+
+                    <Border Classes="CardBorderStyle"
+                            Padding="16,12"
+                            IsVisible="{Binding IsLoadingMore, Converter={StaticResource BoolToVisibilityConverter}}">
+                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Spacing="12">
+                            <ui:ProgressRing Width="20" Height="20" IsActive="{Binding IsLoadingMore}" />
+                            <TextBlock Text="Loading more stories..."
+                                       FontSize="14"
+                                       VerticalAlignment="Center"
+                                       Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+                        </StackPanel>
+                    </Border>
+
+                    <StackPanel Spacing="10"
+                                IsVisible="{Binding IsAtEnd, Converter={StaticResource BoolToVisibilityConverter}}">
+                        <Border Background="{DynamicResource DividerStrokeColorDefaultBrush}" Height="1" HorizontalAlignment="Stretch" Margin="30,0,30,0" />
+                        <TextBlock Text="No more stories" FontSize="12" Foreground="{DynamicResource TextFillColorSecondaryBrush}" HorizontalAlignment="Center" />
+                    </StackPanel>
+                </Grid>
+
+                <Grid Grid.Row="0" IsVisible="{Binding IsLoading, Converter={StaticResource BoolToVisibilityConverter}}">
+                    <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="16">
+                        <ui:ProgressRing Width="48" Height="48" IsActive="{Binding IsLoading}" />
+                        <TextBlock Text="Loading stories..." FontSize="14" Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+                    </StackPanel>
+                </Grid>
+
+                <Grid Grid.Row="0" IsVisible="{Binding HasError, Converter={StaticResource BoolToVisibilityConverter}}">
+                    <Border HorizontalAlignment="Center"
+                            VerticalAlignment="Center"
+                            Classes="CardBorderStyle"
+                            Padding="32"
+                            MaxWidth="320">
+                        <StackPanel Spacing="16" HorizontalAlignment="Center">
+                            <ui:SymbolIcon Symbol="ImportantFilled" FontSize="48" Foreground="{DynamicResource SystemFillColorCriticalBrush}" />
+                            <TextBlock Text="Unable to load stories" FontSize="16" FontWeight="SemiBold" HorizontalAlignment="Center" />
+                            <TextBlock Text="{Binding ErrorMessage}"
+                                       TextWrapping="Wrap"
+                                       TextAlignment="Center"
+                                       Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                                       FontSize="13" />
+                            <Button Content="Try Again" Command="{Binding RetryCommand}" HorizontalAlignment="Center" Classes="accent" />
+                        </StackPanel>
+                    </Border>
+                </Grid>
+
+                <Grid Grid.Row="0" IsVisible="{Binding ShowListEmptyState, Converter={StaticResource BoolToVisibilityConverter}}">
+                    <Border HorizontalAlignment="Center"
+                            VerticalAlignment="Center"
+                            Classes="CardBorderStyle"
+                            Padding="32"
+                            MaxWidth="360">
+                        <StackPanel Spacing="12" HorizontalAlignment="Center">
+                            <TextBlock Text="{Binding EmptyStateTitle}"
+                                       FontSize="18"
+                                       FontWeight="SemiBold"
+                                       HorizontalAlignment="Center"
+                                       TextWrapping="Wrap"
+                                       IsVisible="{Binding EmptyStateTitle, Converter={StaticResource BoolToVisibilityConverter}}" />
+                            <TextBlock Text="{Binding EmptyStateDescription}"
+                                       FontSize="13"
+                                       TextWrapping="Wrap"
+                                       TextAlignment="Center"
+                                       Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                                       IsVisible="{Binding EmptyStateDescription, Converter={StaticResource BoolToVisibilityConverter}}" />
+                        </StackPanel>
+                    </Border>
+                </Grid>
+            </Grid>
+        </Grid>
+        </Border>
+
+        <!-- Detail Panel -->
+        <Grid Grid.Column="1" Background="{DynamicResource LayerFillColorAltBrush}">
+            <StackPanel HorizontalAlignment="Center"
+                        VerticalAlignment="Center"
+                        Spacing="12"
+                        IsVisible="{Binding SelectedStory, Converter={StaticResource BoolToVisibilityConverter}, ConverterParameter=Inverse}">
+                <TextBlock Text="Select a story" FontSize="18" FontWeight="SemiBold" Foreground="{DynamicResource TextFillColorSecondaryBrush}" HorizontalAlignment="Center" />
+                <TextBlock Text="Choose a story from the list to view its details"
+                           FontSize="13"
+                           Foreground="{DynamicResource TextFillColorTertiaryBrush}"
+                           HorizontalAlignment="Center" />
+            </StackPanel>
+
+            <Grid IsVisible="{Binding SelectedStory, Converter={StaticResource BoolToVisibilityConverter}}"
+                  RowDefinitions="Auto,Auto,Auto,*">
+
+                <!-- Story Header Card -->
+                <Border Grid.Row="0" Classes="CardBorderStyle" Margin="24,20,24,0">
+                    <StackPanel Spacing="16">
+                        <TextBlock FontSize="22"
+                                   FontWeight="SemiBold"
+                                   Text="{Binding SelectedStory.Title}"
+                                   TextWrapping="Wrap"
+                                   MaxLines="3"
+                                   TextTrimming="CharacterEllipsis" />
+
+                        <StackPanel Orientation="Horizontal" Spacing="12">
+                            <Border Background="{StaticResource HNAccentBrush}" CornerRadius="4" Padding="8,4">
+                                <StackPanel Orientation="Horizontal" Spacing="4">
+                                    <ui:SymbolIcon Symbol="Up" FontSize="11" Foreground="White" />
+                                    <TextBlock Text="{Binding SelectedStory.DisplayScore}" FontWeight="Bold" Foreground="White" FontSize="12" />
+                                </StackPanel>
+                            </Border>
+
+                            <StackPanel Orientation="Horizontal" Spacing="4" VerticalAlignment="Center">
+                                <ui:SymbolIcon Symbol="Contact" Classes="MetaIcon" />
+                                <TextBlock Text="{Binding SelectedStory.By}" Classes="MetaText" />
+                            </StackPanel>
+
+                            <StackPanel Orientation="Horizontal" Spacing="4" VerticalAlignment="Center">
+                                <ui:SymbolIcon Symbol="Clock" Classes="MetaIcon" />
+                                <TextBlock Text="{Binding SelectedStory.TimeAgo}" Classes="MetaText" />
+                            </StackPanel>
+
+                            <StackPanel Orientation="Horizontal" Spacing="4" VerticalAlignment="Center">
+                                <ui:SymbolIcon Symbol="Comment" Classes="MetaIcon" />
+                                <TextBlock Classes="MetaText">
+                                    <Run Text="{Binding SelectedStory.CommentCount}" />
+                                    <Run Text="comments" />
+                                </TextBlock>
+                            </StackPanel>
+                        </StackPanel>
+
+                        <Border Background="{DynamicResource LayerFillColorDefaultBrush}"
+                                CornerRadius="6"
+                                Padding="12,10"
+                                IsVisible="{Binding SelectedStory.Url, Converter={StaticResource BoolToVisibilityConverter}}">
+                            <Grid ColumnDefinitions="Auto,*">
+                                <ui:SymbolIcon Symbol="Link" FontSize="14" Foreground="{DynamicResource TextFillColorSecondaryBrush}" Margin="0,0,10,0" VerticalAlignment="Center" />
+                                <Button Grid.Column="1"
+                                        Content="{Binding SelectedStory.Url}"
+                                        Click="OnOpenStoryUrlClicked"
+                                        Classes="hyperlink"
+                                        FontSize="13"
+                                        Padding="0"
+                                        HorizontalAlignment="Left"
+                                        VerticalAlignment="Center" />
+                            </Grid>
+                        </Border>
+                    </StackPanel>
+                </Border>
+
+                <!-- Story Text -->
+                <Border Grid.Row="1"
+                        Classes="CardBorderStyle"
+                        Padding="0"
+                        Margin="24,8,24,0"
+                        MaxHeight="200"
+                        IsVisible="{Binding SelectedStory.MarkdownText, Converter={StaticResource BoolToVisibilityConverter}}">
+                    <ScrollViewer VerticalScrollBarVisibility="Auto" Padding="16,12">
+                        <md:MarkdownScrollViewer Markdown="{Binding SelectedStory.MarkdownText, Mode=OneWay}" />
+                    </ScrollViewer>
+                </Border>
+
+                <!-- Action Buttons -->
+                <Border Grid.Row="2" Classes="CardBorderStyle" Padding="16" Margin="24,16,24,0">
+                    <Grid ColumnDefinitions="*,Auto">
+                        <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled" HorizontalAlignment="Stretch">
+                            <StackPanel Orientation="Horizontal" Spacing="8" Margin="10">
+                                <Button Command="{Binding ToggleFavoriteCommand}" Classes="ActionButtonStyle" ToolTip.Tip="Add to favorites">
+                                    <StackPanel Orientation="Horizontal" Spacing="6">
+                                        <TextBlock Text="{Binding FavoriteButtonText}" FontSize="12" />
+                                    </StackPanel>
+                                </Button>
+                                <Button Click="OnCopyLinkClicked" Classes="ActionButtonStyle" ToolTip.Tip="Copy link to clipboard">
+                                    <StackPanel Orientation="Horizontal" Spacing="6">
+                                        <ui:SymbolIcon Symbol="Link" FontSize="14" />
+                                        <TextBlock Text="Copy Link" FontSize="12" />
+                                    </StackPanel>
+                                </Button>
+                                <Button Click="OnCopyTitleClicked" Classes="ActionButtonStyle" ToolTip.Tip="Copy title to clipboard">
+                                    <StackPanel Orientation="Horizontal" Spacing="6">
+                                        <ui:SymbolIcon Symbol="Copy" FontSize="14" />
+                                        <TextBlock Text="Copy Title" FontSize="12" />
+                                    </StackPanel>
+                                </Button>
+                                <Button Click="OnViewOnHnClicked" Classes="ActionButtonStyle" ToolTip.Tip="View on Hacker News">
+                                    <StackPanel Orientation="Horizontal" Spacing="6">
+                                        <ui:SymbolIcon Symbol="Go" FontSize="14" />
+                                        <TextBlock Text="View on HN" FontSize="12" />
+                                    </StackPanel>
+                                </Button>
+                            </StackPanel>
+                        </ScrollViewer>
+
+                        <Border Grid.Column="1"
+                                VerticalAlignment="Center"
+                                Background="{DynamicResource SystemFillColorSuccessBackgroundBrush}"
+                                CornerRadius="4"
+                                Padding="10,6"
+                                Opacity="{Binding ShowCopyFeedback, Converter={StaticResource BoolToOpacityConverter}}"
+                                IsHitTestVisible="{Binding ShowCopyFeedback}">
+                            <Border.Transitions>
+                                <Transitions>
+                                    <DoubleTransition Property="Opacity" Duration="0:0:0.2" Easing="CubicEaseOut" />
+                                </Transitions>
+                            </Border.Transitions>
+                            <StackPanel Orientation="Horizontal" Spacing="6">
+                                <TextBlock Text="{Binding CopyFeedbackText}" FontSize="12" Foreground="{DynamicResource SystemFillColorSuccessBrush}" />
+                            </StackPanel>
+                        </Border>
+                    </Grid>
+                </Border>
+
+                <!-- Comments Section -->
+                <Border Grid.Row="3" Classes="CardBorderStyle" Padding="0" Margin="24,16,24,20">
+                    <Grid RowDefinitions="Auto,*">
+
+                        <Grid Grid.Row="0" Margin="20,20,20,12" ColumnDefinitions="*,Auto">
+                            <StackPanel Orientation="Horizontal" Spacing="10">
+                                <ui:SymbolIcon Symbol="Comment" FontSize="18" />
+                                <TextBlock Text="Comments" FontSize="16" FontWeight="SemiBold" VerticalAlignment="Center" />
+                                <Border Background="{DynamicResource LayerFillColorDefaultBrush}" CornerRadius="10" Padding="8,4">
+                                    <TextBlock Text="{Binding SelectedStory.CommentCount}" FontSize="12" FontWeight="SemiBold" />
+                                </Border>
+                            </StackPanel>
+                            <Button Grid.Column="1"
+                                    Content="{Binding CommentsButtonText}"
+                                    Command="{Binding ToggleCommentsCommand}"
+                                    Classes="accent" />
+                        </Grid>
+
+                        <ScrollViewer Grid.Row="1"
+                                      Padding="20,16,20,20"
+                                      VerticalScrollBarVisibility="Auto"
+                                      Opacity="{Binding AreCommentsVisible, Converter={StaticResource BoolToOpacityConverter}}"
+                                      IsHitTestVisible="{Binding AreCommentsVisible}">
+                            <ScrollViewer.Transitions>
+                                <Transitions>
+                                    <DoubleTransition Property="Opacity" Duration="0:0:0.25" Easing="CubicEaseOut" />
+                                </Transitions>
+                            </ScrollViewer.Transitions>
+                            <StackPanel>
+                                <ItemsControl ItemsSource="{Binding WebCommentNodes}"
+                                              ItemTemplate="{StaticResource WebCommentTemplate}" />
+
+                                <StackPanel Spacing="12" Margin="0,24,0,8" IsVisible="{Binding ShowCommentsEnd, Converter={StaticResource BoolToVisibilityConverter}}">
+                                    <Border Background="{DynamicResource DividerStrokeColorDefaultBrush}" Height="1" HorizontalAlignment="Stretch" Margin="40,0,40,0" />
+                                    <TextBlock Text="End of comments" FontSize="12" Foreground="{DynamicResource TextFillColorSecondaryBrush}" HorizontalAlignment="Center" />
+                                </StackPanel>
+                            </StackPanel>
+                        </ScrollViewer>
+
+                        <StackPanel Grid.Row="1" Margin="20,0,20,20"
+                                    HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="12"
+                                    IsVisible="{Binding HasCommentsError, Converter={StaticResource BoolToVisibilityConverter}}">
+                            <ui:SymbolIcon Symbol="ImportantFilled" FontSize="32" Foreground="{DynamicResource SystemFillColorCriticalBrush}" />
+                            <TextBlock Text="{Binding CommentsErrorMessage}"
+                                       FontSize="14"
+                                       TextWrapping="Wrap"
+                                       TextAlignment="Center"
+                                       MaxWidth="360"
+                                       Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+                            <Button Content="Try Again" Command="{Binding ToggleCommentsCommand}" Classes="accent" />
+                        </StackPanel>
+
+                        <StackPanel Grid.Row="1" Margin="20,0,20,20"
+                                    HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="8"
+                                    IsVisible="{Binding ShowNoCommentsMessage, Converter={StaticResource BoolToVisibilityConverter}}">
+                            <ui:SymbolIcon Symbol="Comment" FontSize="32" Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+                            <TextBlock Text="No comments yet" FontSize="14" Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+                        </StackPanel>
+
+                        <StackPanel Grid.Row="1" Margin="20,0,20,20"
+                                    HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="12"
+                                    IsVisible="{Binding IsCommentsLoading, Converter={StaticResource BoolToVisibilityConverter}}">
+                            <ui:ProgressRing Width="32" Height="32" IsActive="{Binding IsCommentsLoading}" />
+                            <TextBlock Text="Loading comments..." FontSize="14" Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+                        </StackPanel>
+                    </Grid>
+                </Border>
+            </Grid>
+        </Grid>
+    </Grid>
+</UserControl>

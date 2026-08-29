@@ -2,6 +2,7 @@ using HNReader.Core.Constants;
 using HNReader.Core.Enums;
 using HNReader.Core.Helpers;
 using HNReader.Core.Interfaces;
+using HNReader.Core.Services.Logging;
 using System.Text.Json;
 
 namespace HNReader.Core.Services;
@@ -9,13 +10,15 @@ namespace HNReader.Core.Services;
 public class SettingsService : ISettingsService
 {
     private readonly string _settingsFilePath;
+    private readonly ILogger? _logger;
     private SettingsData _settings;
 
     public event EventHandler<AppTheme>? ThemeChanged;
 
-    public SettingsService(string settingsDirectory)
+    public SettingsService(string settingsDirectory, ILogger? logger = null)
     {
         _settingsFilePath = Path.Combine(settingsDirectory, AppFileNames.SETTINGS_FILE_NAME);
+        _logger = logger;
         _settings = new SettingsData();
         Load();
     }
@@ -40,10 +43,11 @@ public class SettingsService : ISettingsService
         {
             var json = JsonSerializer.Serialize(_settings, CoreHelper.JsonSerializerOptions);
             File.WriteAllText(_settingsFilePath, json);
+            _logger?.LogDebug("Settings", "settings saved", context: null);
         }
         catch (Exception ex)
         {
-            System.Diagnostics.Debug.WriteLine($"Error saving settings: {ex.Message}");
+            _logger?.LogWarning("Settings", "failed to save settings", ex);
         }
     }
 
@@ -59,7 +63,7 @@ public class SettingsService : ISettingsService
         }
         catch (Exception ex)
         {
-            System.Diagnostics.Debug.WriteLine($"Error loading settings: {ex.Message}");
+            _logger?.LogWarning("Settings", "failed to load settings; using defaults", ex);
             _settings = new SettingsData();
         }
     }

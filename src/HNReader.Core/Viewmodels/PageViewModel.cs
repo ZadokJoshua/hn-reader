@@ -5,6 +5,7 @@ using HNReader.Core.Helpers;
 using HNReader.Core.Interfaces;
 using HNReader.Core.Models;
 using HNReader.Core.Services;
+using HNReader.Core.Services.Logging;
 using System.Collections.ObjectModel;
 
 namespace HNReader.Core.Viewmodels;
@@ -19,6 +20,7 @@ public abstract partial class PageViewModel : BaseViewModel
     private readonly HNWebClient _webClient;
     private readonly Lazy<IFavoritesService> _favoritesService;
     private readonly StoryType _itemType;
+    private readonly ILogger? _logger;
     private bool _suppressSelectedStoryReset;
 
     private CancellationTokenSource? _commentsLoadCts;
@@ -27,9 +29,10 @@ public abstract partial class PageViewModel : BaseViewModel
 
     protected IFavoritesService FavoritesService => _favoritesService.Value;
     protected HNClient Client => _client;
+    protected ILogger? Logger => _logger;
 
     // Pagination
-    private int _currentPage = 0;
+    private int _nextOffset = 0;
     private const int PageSize = 20;
     private bool _hasMoreItems = true;
     public bool HasMoreItems
@@ -64,6 +67,23 @@ public abstract partial class PageViewModel : BaseViewModel
 
     public bool HasStories => Stories.Count > 0 && !HasError;
 
+    // These are all derived from Stories.Count, which changes via Stories.Add()
+    // calls that don't themselves raise PropertyChanged for anything (and the
+    // HasMoreItems setter above only notifies when its own value actually
+    // flips). Call this after any batch of additions completes so bindings
+    // depending on the story count/pagination state re-evaluate reliably,
+    // regardless of whether HasMoreItems happened to change this time.
+    private void NotifyPaginationPropertiesChanged()
+    {
+        OnPropertyChanged(nameof(HasStories));
+        OnPropertyChanged(nameof(ShowLoadMoreButton));
+        OnPropertyChanged(nameof(LoadMoreFooterVisible));
+        OnPropertyChanged(nameof(ShowLoadMoreFooter));
+        OnPropertyChanged(nameof(IsAtEnd));
+        OnPropertyChanged(nameof(LoadMoreButtonText));
+        OnPropertyChanged(nameof(IsLoadMoreEnabled));
+    }
+
     [ObservableProperty]
     private ObservableCollection<Story> _stories = [];
 
@@ -85,11 +105,7 @@ public abstract partial class PageViewModel : BaseViewModel
     [ObservableProperty]
     private bool _isLoadingMore;
 
-    partial void OnIsLoadingMoreChanged(bool value)
-    {
-        OnPropertyChanged(nameof(LoadMoreFooterVisible));
-        OnPropertyChanged(nameof(IsLoadMoreEnabled));
-    }
+    partial void OnIsLoadingMoreChanged(bool value) => NotifyPaginationPropertiesChanged();
 
     [ObservableProperty]
     private string _pageTitle = string.Empty;
@@ -122,6 +138,9 @@ public abstract partial class PageViewModel : BaseViewModel
 
     [ObservableProperty]
     private bool _areCommentsVisible;
+
+    [ObservableProperty]
+    private bool _showCommentsEnd;
 
     [ObservableProperty]
     private bool _isCommentsLoading;
@@ -173,12 +192,13 @@ public abstract partial class PageViewModel : BaseViewModel
 
     // ── Construction ─────────────────────────────────────────────────────
 
-    protected PageViewModel(HNClient client, Lazy<IFavoritesService> favoritesService, StoryType itemType, HNWebClient webClient)
+    protected PageViewModel(HNClient client, Lazy<IFavoritesService> favoritesService, StoryType itemType, HNWebClient webClient, ILogger? logger = null)
     {
         _client = client;
         _favoritesService = favoritesService;
         _itemType = itemType;
         _webClient = webClient;
+        _logger = logger;
     }
 
     public virtual async Task PopulateListAsync()
@@ -193,7 +213,7 @@ public abstract partial class PageViewModel : BaseViewModel
             // resume on the UI thread so the ObservableCollection<Story> mutations below
             // run on the dispatcher. WinUI 3 will deadlock if you update a bound
             // collection from a thread-pool thread.
-            var stories = await _client.GetStoriesAsync(_itemType, limit: PageSize);
+            var (stories, nextOffset) = await _client.GetStoriesPageAsync(_itemType, limit: PageSize);
 
             foreach (var story in stories)
             {
@@ -204,14 +224,14 @@ public abstract partial class PageViewModel : BaseViewModel
 
             ApplySearchFilter();
 
-            _currentPage = 1;
+            _nextOffset = nextOffset;
             HasMoreItems = stories.Count >= PageSize;
             IsDataVisible = Stories.Count > 0;
-            OnPropertyChanged(nameof(HasStories));
+            NotifyPaginationPropertiesChanged();
         }
         catch (Exception ex)
         {
-            System.Diagnostics.Debug.WriteLine($"Error loading stories: {ex.Message}");
+            _logger?.LogError("PageViewModel", "Error loading stories", ex);
             HasError = true;
             ErrorMessage = "There was an error loading stories. Please check your connection and try again.";
         }
@@ -233,7 +253,7 @@ public abstract partial class PageViewModel : BaseViewModel
         HasError = false;
         ErrorMessage = string.Empty;
 
-        _currentPage = 0;
+        _nextOffset = 0;
         HasMoreItems = true;
         IsDataVisible = false;
 
@@ -250,9 +270,8 @@ public abstract partial class PageViewModel : BaseViewModel
 
         try
         {
-            var offset = _currentPage * PageSize;
             // Stay on the UI thread after await — see PopulateListAsync comment.
-            var stories = await _client.GetStoriesAsync(_itemType, limit: PageSize, offset: offset);
+            var (stories, nextOffset) = await _client.GetStoriesPageAsync(_itemType, limit: PageSize, offset: _nextOffset);
 
             foreach (var story in stories)
             {
@@ -267,12 +286,13 @@ public abstract partial class PageViewModel : BaseViewModel
 
             ApplySearchFilter();
 
-            _currentPage++;
+            _nextOffset = nextOffset;
             HasMoreItems = stories.Count >= PageSize;
+            NotifyPaginationPropertiesChanged();
         }
         catch (Exception ex)
         {
-            System.Diagnostics.Debug.WriteLine($"Error loading more stories: {ex.Message}");
+            _logger?.LogError("PageViewModel", "Error loading more stories", ex);
         }
         finally
         {
@@ -283,9 +303,11 @@ public abstract partial class PageViewModel : BaseViewModel
     partial void OnSearchTextChanged(string value)
     {
         ApplySearchFilter();
-        OnPropertyChanged(nameof(ShowLoadMoreButton));
-        OnPropertyChanged(nameof(LoadMoreFooterVisible));
+        NotifyPaginationPropertiesChanged();
     }
+
+    [RelayCommand]
+    private void ClearSearch() => SearchText = string.Empty;
 
     protected void ApplySearchFilter()
     {
@@ -380,6 +402,7 @@ public abstract partial class PageViewModel : BaseViewModel
 
         if (WebCommentNodes.Count > 0)
             WebCommentNodes.Clear();
+        ShowCommentsEnd = false;
         _webCommentRoots = null;
         AreCommentsVisible = false;
         IsCommentsLoading = false;
@@ -442,13 +465,14 @@ public abstract partial class PageViewModel : BaseViewModel
         }
         catch (Exception ex)
         {
-            System.Diagnostics.Debug.WriteLine($"Error loading comments: {ex.Message}");
+            _logger?.LogError("PageViewModel", "Error loading comments", ex);
             HasCommentsError = true;
             HasConfirmedNoComments = false;
             CommentsErrorMessage = "There was an error loading comments. Please try again.";
             AreCommentsVisible = false;
             _webCommentRoots = null;
             WebCommentNodes = [];
+            ShowCommentsEnd = false;
             OnPropertyChanged(nameof(ShowWebComments));
             OnPropertyChanged(nameof(ShowNoCommentsMessage));
         }
@@ -467,13 +491,23 @@ public abstract partial class PageViewModel : BaseViewModel
 
         cancellationToken.ThrowIfCancellationRequested();
 
+        var story = SelectedStory;
+
         if (_commentCache.TryGetValue(storyId, out var cached) && cached != null)
         {
             _webCommentRoots = cached;
+
+            // Comments came from cache, so no page fetch happened this time — if
+            // the descendant count still looks stale, refresh it in the background
+            // without blocking comment rendering on a network round-trip.
+            if (story.Descendants is null or 0)
+            {
+                _ = RefreshAccurateCommentCountAsync(story, storyId, cancellationToken);
+            }
         }
         else
         {
-            var webComments = await GetCommentsWithEmptyRetryAsync(SelectedStory, storyId, cancellationToken);
+            var (webComments, accurateCount) = await GetCommentsWithEmptyRetryAsync(story, storyId, cancellationToken);
 
             cancellationToken.ThrowIfCancellationRequested();
 
@@ -494,18 +528,12 @@ public abstract partial class PageViewModel : BaseViewModel
             }
 
             // The HN Firebase API sometimes returns 0 descendants for stories
-            // (notably Ask HN posts). When that happens, get the real count from
-            // the HTML page so the badge and any other UI bound to CommentCount
-            // reflects reality. This is a fire-and-forget refresh — we don't
-            // block the comment rendering on it.
-            if (_webCommentRoots.Count > 0 && SelectedStory.Descendants is null or 0)
+            // (notably Ask HN posts). The accurate count already came back with
+            // the comments in the same page fetch above, so no extra round-trip
+            // is needed here.
+            if (_webCommentRoots.Count > 0 && story.Descendants is null or 0 && accurateCount > 0)
             {
-                var accurateCount = await _webClient.GetAccurateCommentCountAsync(storyId, cancellationToken);
-                cancellationToken.ThrowIfCancellationRequested();
-                if (accurateCount > 0)
-                {
-                    SelectedStory.Descendants = accurateCount;
-                }
+                story.Descendants = accurateCount;
             }
         }
 
@@ -514,49 +542,71 @@ public abstract partial class PageViewModel : BaseViewModel
         await LoadCommentsBatchedAsync(_webCommentRoots ?? [], cancellationToken);
     }
 
-    private async Task<List<WebComment>> GetCommentsWithEmptyRetryAsync(Story story, int storyId, CancellationToken cancellationToken)
+    /// <summary>
+    /// Fires-and-forgets a comment-count refresh for the comments-cache-hit path,
+    /// where we have comments but skipped fetching the page (so the descendant
+    /// count may still be stale). Never awaited by the caller — a badge number
+    /// updating a moment late isn't worth blocking comment rendering on.
+    /// </summary>
+    private async Task RefreshAccurateCommentCountAsync(Story story, int storyId, CancellationToken cancellationToken)
     {
-        var webComments = await _webClient.GetCommentsFromWebAsync(storyId, cancellationToken);
+        try
+        {
+            var accurateCount = await _webClient.GetAccurateCommentCountAsync(storyId, cancellationToken);
+            if (!cancellationToken.IsCancellationRequested && accurateCount > 0)
+            {
+                story.Descendants = accurateCount;
+            }
+        }
+        catch (OperationCanceledException)
+        {
+            // The story selection moved on before this finished — fine to drop.
+        }
+        catch (Exception ex)
+        {
+            _logger?.LogWarning("PageViewModel", "background comment count refresh failed", ex);
+        }
+    }
+
+    private async Task<(List<WebComment> Comments, int AccurateCount)> GetCommentsWithEmptyRetryAsync(Story story, int storyId, CancellationToken cancellationToken)
+    {
+        var (webComments, accurateCount) = await _webClient.FetchCommentsPageAsync(storyId, cancellationToken);
         cancellationToken.ThrowIfCancellationRequested();
 
         if (webComments.Count > 0)
         {
-            return webComments;
+            // The same fetch already tells us both the comments and the row
+            // count — no need for a separate confirmatory request.
+            return (webComments, accurateCount);
         }
 
-        if (story.CommentCount > 0)
-        {
-            webComments = await _webClient.GetCommentsFromWebAsync(storyId, cancellationToken);
-            cancellationToken.ThrowIfCancellationRequested();
-
-            if (webComments.Count > 0)
-            {
-                return webComments;
-            }
-
-            throw new InvalidOperationException("Hacker News reported comments, but no comments could be loaded.");
-        }
-
-        var accurateCount = await _webClient.GetAccurateCommentCountAsync(storyId, cancellationToken);
+        // The HTML parser returned no comments. This could be genuinely
+        // comment-free, or the page could have been momentarily stale (HN's
+        // page occasionally lags right after a story is created) — re-check
+        // with a fresh request before deciding, rather than trusting the one
+        // possibly-stale snapshot we already have.
+        var freshCount = await _webClient.GetAccurateCommentCountAsync(storyId, cancellationToken);
         cancellationToken.ThrowIfCancellationRequested();
 
-        if (accurateCount > 0)
+        if (freshCount == 0)
         {
-            story.Descendants = accurateCount;
-
-            webComments = await _webClient.GetCommentsFromWebAsync(storyId, cancellationToken);
-            cancellationToken.ThrowIfCancellationRequested();
-
-            if (webComments.Count > 0)
-            {
-                return webComments;
-            }
-
-            throw new InvalidOperationException("Hacker News reported comments, but no comments could be parsed.");
+            HasConfirmedNoComments = true;
+            return (webComments, freshCount);
         }
 
-        HasConfirmedNoComments = true;
-        return webComments;
+        story.Descendants = freshCount;
+
+        // The API/HTML both report comments but the parser found none — try
+        // once more against a fresh fetch, then give up.
+        var (retryComments, retryCount) = await _webClient.FetchCommentsPageAsync(storyId, cancellationToken);
+        cancellationToken.ThrowIfCancellationRequested();
+
+        if (retryComments.Count > 0)
+        {
+            return (retryComments, retryCount);
+        }
+
+        throw new InvalidOperationException("Hacker News reported comments, but no comments could be parsed.");
     }
 
     private async Task LoadCommentsBatchedAsync(List<WebCommentNode> roots, CancellationToken cancellationToken)
@@ -566,12 +616,14 @@ public abstract partial class PageViewModel : BaseViewModel
         if (roots == null || roots.Count == 0)
         {
             WebCommentNodes = [];
+            ShowCommentsEnd = false;
             OnPropertyChanged(nameof(ShowWebComments));
             OnPropertyChanged(nameof(ShowNoCommentsMessage));
             return;
         }
 
         WebCommentNodes = [];
+        ShowCommentsEnd = false;
         OnPropertyChanged(nameof(ShowWebComments));
         OnPropertyChanged(nameof(ShowNoCommentsMessage));
 
@@ -594,6 +646,7 @@ public abstract partial class PageViewModel : BaseViewModel
             }
         }
 
+        ShowCommentsEnd = true;
         OnPropertyChanged(nameof(ShowWebComments));
         OnPropertyChanged(nameof(ShowNoCommentsMessage));
     }

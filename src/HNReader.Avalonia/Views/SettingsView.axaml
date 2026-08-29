@@ -1,0 +1,150 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:ui="using:FluentAvalonia.UI.Controls"
+             x:Class="HNReader.Avalonia.Views.SettingsView">
+
+    <Grid Margin="32,24,32,24">
+        <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+            <StackPanel Spacing="24" Width="600" HorizontalAlignment="Left">
+
+                <!-- Page Header -->
+                <StackPanel Spacing="4">
+                    <TextBlock Text="Settings" Classes="TitleTextBlockStyle" FontWeight="Bold" />
+                    <TextBlock Text="Customize your HN Reader experience"
+                               Classes="CaptionTextBlockStyle" />
+                </StackPanel>
+
+                <!-- Appearance -->
+                <Border Classes="SettingsCard">
+                    <StackPanel Spacing="20">
+                        <StackPanel Orientation="Horizontal" Spacing="12">
+                            <Border Classes="SettingsIconBadge">
+                                <ui:SymbolIcon Symbol="DarkTheme" FontSize="16" Foreground="White" />
+                            </Border>
+                            <TextBlock Text="Appearance" Classes="SubtitleTextBlockStyle" VerticalAlignment="Center" />
+                        </StackPanel>
+
+                        <Grid ColumnDefinitions="*,Auto">
+                            <StackPanel Grid.Column="0" Spacing="4">
+                                <TextBlock Text="Theme" Classes="BodyStrongTextBlockStyle" />
+                                <TextBlock Text="Select your preferred app theme" Classes="CaptionTextBlockStyle" />
+                            </StackPanel>
+                            <ComboBox Grid.Column="1"
+                                      MinWidth="140"
+                                      SelectedIndex="{Binding SelectedThemeIndex, Mode=TwoWay}"
+                                      ItemsSource="{Binding ThemeOptions}"
+                                      VerticalAlignment="Center" />
+                        </Grid>
+                    </StackPanel>
+                </Border>
+
+                <!-- Data -->
+                <Border Classes="SettingsCard">
+                    <StackPanel Spacing="20">
+                        <StackPanel Orientation="Horizontal" Spacing="12">
+                            <Border Classes="SettingsIconBadge">
+                                <ui:SymbolIcon Symbol="Save" FontSize="16" Foreground="White" />
+                            </Border>
+                            <TextBlock Text="Data" Classes="SubtitleTextBlockStyle" VerticalAlignment="Center" />
+                        </StackPanel>
+
+                        <StackPanel Spacing="8">
+                            <TextBlock Text="Backup &amp; restore your favourites" Classes="BodyStrongTextBlockStyle" />
+                            <TextBlock Text="Export to a JSON file you can save anywhere, or import a previously-exported file."
+                                       Classes="CaptionTextBlockStyle"
+                                       TextWrapping="Wrap" />
+
+                            <StackPanel Orientation="Horizontal" Spacing="8" Margin="0,8,0,0">
+                                <Button x:Name="ExportFavoritesButton"
+                                        Click="ExportFavoritesButton_Click"
+                                        Classes="accent">
+                                    <StackPanel Orientation="Horizontal" Spacing="6">
+                                        <ui:SymbolIcon Symbol="Save" FontSize="14" />
+                                        <TextBlock Text="Export favourites" />
+                                    </StackPanel>
+                                </Button>
+                                <Button x:Name="ImportFavoritesButton"
+                                        Click="ImportFavoritesButton_Click">
+                                    <StackPanel Orientation="Horizontal" Spacing="6">
+                                        <ui:SymbolIcon Symbol="OpenFile" FontSize="14" />
+                                        <TextBlock Text="Import favourites" />
+                                    </StackPanel>
+                                </Button>
+                            </StackPanel>
+
+                            <ui:InfoBar x:Name="StatusInfoBar"
+                                        IsOpen="False"
+                                        IsClosable="True"
+                                        Margin="0,8,0,0" />
+                        </StackPanel>
+                    </StackPanel>
+                </Border>
+
+                <!-- Diagnostics -->
+                <Border Classes="SettingsCard">
+                    <StackPanel Spacing="20">
+                        <StackPanel Orientation="Horizontal" Spacing="12">
+                            <Border Classes="SettingsIconBadge">
+                                <ui:SymbolIcon Symbol="Help" FontSize="16" Foreground="White" />
+                            </Border>
+                            <TextBlock Text="Diagnostics" Classes="SubtitleTextBlockStyle" VerticalAlignment="Center" />
+                        </StackPanel>
+
+                        <StackPanel Spacing="8">
+                            <TextBlock Text="Export logs or report a problem" Classes="BodyStrongTextBlockStyle" />
+                            <TextBlock Text="Logs are kept for 7 days (max 10 files, 2 MB each). Use 'Export logs' to bundle them into a zip you can attach to a bug report."
+                                       Classes="CaptionTextBlockStyle"
+                                       TextWrapping="Wrap" />
+
+                            <StackPanel Orientation="Horizontal" Spacing="8" Margin="0,8,0,0">
+                                <Button x:Name="ExportLogsButton" Click="ExportLogsButton_Click">
+                                    <StackPanel Orientation="Horizontal" Spacing="6">
+                                        <ui:SymbolIcon Symbol="Save" FontSize="14" />
+                                        <TextBlock Text="Export logs" />
+                                    </StackPanel>
+                                </Button>
+                                <Button x:Name="ReportBugButton"
+                                        Click="ReportBugButton_Click"
+                                        IsEnabled="{Binding CanReportBug}"
+                                        ToolTip.Tip="Bug-report URL not configured yet">
+                                    <StackPanel Orientation="Horizontal" Spacing="6">
+                                        <ui:SymbolIcon Symbol="ImportantFilled" FontSize="14" />
+                                        <TextBlock Text="Report a bug" />
+                                    </StackPanel>
+                                </Button>
+                            </StackPanel>
+
+                            <ui:InfoBar x:Name="DiagnosticsInfoBar"
+                                        IsOpen="False"
+                                        IsClosable="True"
+                                        Margin="0,8,0,0" />
+                        </StackPanel>
+                    </StackPanel>
+                </Border>
+
+                <!-- About -->
+                <Border Classes="SettingsCard">
+                    <StackPanel Spacing="16">
+                        <StackPanel Orientation="Horizontal" Spacing="12">
+                            <Border Classes="SettingsIconBadge">
+                                <ui:SymbolIcon Symbol="Emoji" FontSize="16" Foreground="White" />
+                            </Border>
+                            <TextBlock Text="About" Classes="SubtitleTextBlockStyle" VerticalAlignment="Center" />
+                        </StackPanel>
+
+                        <StackPanel Orientation="Horizontal" Spacing="16">
+                            <TextBlock Text="HN Reader"
+                                       Classes="BodyStrongTextBlockStyle"
+                                       FontSize="16"
+                                       VerticalAlignment="Center" />
+                        </StackPanel>
+
+                        <TextBlock Text="A fast, modern Hacker News reader. Browse Top/New/Best/Ask/Show stories, read full comment threads, and save your favourites."
+                                   Classes="CaptionTextBlockStyle"
+                                   TextWrapping="Wrap" />
+                    </StackPanel>
+                </Border>
+            </StackPanel>
+        </ScrollViewer>
+    </Grid>
+</UserControl>

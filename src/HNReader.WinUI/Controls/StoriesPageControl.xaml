@@ -114,7 +114,7 @@
 
                             <toolkit:MarkdownTextBlock
                                 TextWrapping="Wrap"
-                                Text="{Binding MdText}"
+                                Text="{Binding MdText, Mode=OneWay}"
                                 FontSize="13"
                                 Background="Transparent"
                                 CodeBackground="{ThemeResource LayerFillColorDefaultBrush}"
@@ -424,7 +424,7 @@
                         VerticalScrollBarVisibility="Auto"
                         Padding="16,12">
                         <toolkit:MarkdownTextBlock
-                            Text="{Binding SelectedStory.MarkdownText}"
+                            Text="{Binding SelectedStory.MarkdownText, Mode=OneWay}"
                             TextWrapping="Wrap"
                             FontSize="14"
                             Background="Transparent"
@@ -552,6 +552,8 @@
                             ItemTemplate="{StaticResource WebCommentTemplate}"
                             SelectionMode="None"
                             Padding="20,16,20,20"
+                            ScrollViewer.VerticalScrollBarVisibility="Hidden"
+                            ScrollViewer.VerticalScrollMode="Enabled"
                             Visibility="{Binding AreCommentsVisible, Converter={StaticResource BoolToVisibilityConverter}}">
                             <ListView.ItemContainerStyle>
                                 <Style TargetType="ListViewItem">
@@ -565,6 +567,19 @@
                                     <ItemsStackPanel />
                                 </ItemsPanelTemplate>
                             </ListView.ItemsPanel>
+                            <ListView.Footer>
+                                <StackPanel Spacing="12" Padding="0,24,0,8"
+                                            Visibility="{Binding ShowCommentsEnd, Converter={StaticResource BoolToVisibilityConverter}}">
+                                    <Border Background="{ThemeResource DividerStrokeColorDefaultBrush}"
+                                            Height="1"
+                                            HorizontalAlignment="Stretch"
+                                            Margin="40,0,40,0" />
+                                    <TextBlock Text="End of comments"
+                                               FontSize="12"
+                                               Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                               HorizontalAlignment="Center" />
+                                </StackPanel>
+                            </ListView.Footer>
                         </ListView>
 
                         <StackPanel Grid.Row="1" Padding="20,0,20,20"

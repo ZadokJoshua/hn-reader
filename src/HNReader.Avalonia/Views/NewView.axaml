@@ -1,0 +1,6 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:controls="using:HNReader.Avalonia.Controls"
+             x:Class="HNReader.Avalonia.Views.NewView">
+    <controls:StoriesPageControl />
+</UserControl>
