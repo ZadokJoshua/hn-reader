@@ -38,14 +38,14 @@
                     </StackPanel>
                 </Border>
 
-                <!-- Data -->
+                <!-- Data & Diagnostics -->
                 <Border Classes="SettingsCard">
                     <StackPanel Spacing="20">
                         <StackPanel Orientation="Horizontal" Spacing="12">
                             <Border Classes="SettingsIconBadge">
                                 <ui:SymbolIcon Symbol="Save" FontSize="16" Foreground="White" />
                             </Border>
-                            <TextBlock Text="Data" Classes="SubtitleTextBlockStyle" VerticalAlignment="Center" />
+                            <TextBlock Text="Data &amp; Diagnostics" Classes="SubtitleTextBlockStyle" VerticalAlignment="Center" />
                         </StackPanel>
 
                         <StackPanel Spacing="8">
@@ -77,18 +77,8 @@
                                         IsClosable="True"
                                         Margin="0,8,0,0" />
                         </StackPanel>
-                    </StackPanel>
-                </Border>
 
-                <!-- Diagnostics -->
-                <Border Classes="SettingsCard">
-                    <StackPanel Spacing="20">
-                        <StackPanel Orientation="Horizontal" Spacing="12">
-                            <Border Classes="SettingsIconBadge">
-                                <ui:SymbolIcon Symbol="Help" FontSize="16" Foreground="White" />
-                            </Border>
-                            <TextBlock Text="Diagnostics" Classes="SubtitleTextBlockStyle" VerticalAlignment="Center" />
-                        </StackPanel>
+                        <Border Background="{DynamicResource DividerStrokeColorDefaultBrush}" Height="1" HorizontalAlignment="Stretch" />
 
                         <StackPanel Spacing="8">
                             <TextBlock Text="Export logs or report a problem" Classes="BodyStrongTextBlockStyle" />
@@ -125,12 +115,7 @@
                 <!-- About -->
                 <Border Classes="SettingsCard">
                     <StackPanel Spacing="16">
-                        <StackPanel Orientation="Horizontal" Spacing="12">
-                            <Border Classes="SettingsIconBadge">
-                                <ui:SymbolIcon Symbol="Emoji" FontSize="16" Foreground="White" />
-                            </Border>
-                            <TextBlock Text="About" Classes="SubtitleTextBlockStyle" VerticalAlignment="Center" />
-                        </StackPanel>
+                        <TextBlock Text="About" Classes="SubtitleTextBlockStyle" />
 
                         <StackPanel Orientation="Horizontal" Spacing="16">
                             <TextBlock Text="HN Reader"

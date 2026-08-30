@@ -42,6 +42,12 @@
             <SolidColorBrush x:Key="TextOnAccentFillColorSecondaryBrush" Color="#FFFFFFFF" Opacity="0.9" />
             <SolidColorBrush x:Key="TextOnAccentFillColorDisabledBrush" Color="#FFFFFFFF" Opacity="0.7" />
 
+            <!-- Recolor the built-in toast notification's top accent stripe so
+                 confirmations (copy/favourite) rhyme with the brand instead of
+                 Avalonia's default green/blue. Warning/Error stay semantic. -->
+            <SolidColorBrush x:Key="NotificationCardSuccessBackgroundBrush" Color="{StaticResource HNReaderAccent}" />
+            <SolidColorBrush x:Key="NotificationCardInformationBackgroundBrush" Color="{StaticResource HNReaderAccent}" />
+
             <conv:BoolToVisibilityConverter x:Key="BoolToVisibilityConverter" />
             <conv:BoolToCollapseTextConverter x:Key="BoolToCollapseTextConverter" />
             <conv:DepthToVisibilityConverter x:Key="DepthToVisibilityConverter" />

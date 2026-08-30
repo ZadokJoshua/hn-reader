@@ -122,13 +122,10 @@
                 </ListBox>
 
                 <Grid Grid.Row="1" Margin="8,16" IsVisible="{Binding ShowLoadMoreFooter, Converter={StaticResource BoolToVisibilityConverter}}">
-                    <Button x:Name="LoadMoreButton"
-                            Content="{Binding LoadMoreButtonText}"
-                            Click="OnLoadMoreClicked"
-                            HorizontalAlignment="Stretch"
-                            Padding="16,12"
-                            IsVisible="{Binding IsLoadMoreEnabled, Converter={StaticResource BoolToVisibilityConverter}}" />
-
+                    <!-- No manual "Load more" button: the list auto-loads more
+                         stories as you scroll near the bottom (see
+                         OnStoriesListScrollChanged). This area only shows the
+                         in-progress spinner or the end-of-list marker. -->
                     <Border Classes="CardBorderStyle"
                             Padding="16,12"
                             IsVisible="{Binding IsLoadingMore, Converter={StaticResource BoolToVisibilityConverter}}">
@@ -294,7 +291,10 @@
                                     <TextBlock Text="{Binding FavoriteButtonText}" FontSize="12" />
                                 </StackPanel>
                             </Button>
-                            <Button Click="OnCopyLinkClicked" Classes="ActionButtonStyle" ToolTip.Tip="Copy link to clipboard">
+                            <Button Click="OnCopyLinkClicked"
+                                    Classes="ActionButtonStyle"
+                                    IsEnabled="{Binding SelectedStory.Url, Converter={StaticResource BoolToVisibilityConverter}}"
+                                    ToolTip.Tip="Copy link to clipboard">
                                 <StackPanel Orientation="Horizontal" Spacing="6">
                                     <ui:SymbolIcon Symbol="Link" FontSize="14" />
                                     <TextBlock Text="Copy Link" FontSize="12" />

@@ -15,6 +15,6 @@ public static class AppFileNames
     public const long LOG_MAX_FILE_BYTES = 2L * 1024L * 1024L; // 2 MB
     public const int LOG_MAX_FILES = 10;
 
-    // Microsoft Forms URL for the "Report a bug" link. Empty disables the button.
-    public const string BUG_REPORT_URL = "";
+    // GitHub "new issue" URL for the "Report a bug" link. Empty disables the button.
+    public const string BUG_REPORT_URL = "https://github.com/ZadokJoshua/hn-reader/issues/new";
 }

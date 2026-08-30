@@ -1,5 +1,4 @@
 using CommunityToolkit.Mvvm.ComponentModel;
-using CommunityToolkit.Mvvm.Input;
 using HNReader.Core.Constants;
 using HNReader.Core.Enums;
 using HNReader.Core.Interfaces;
@@ -31,11 +30,5 @@ public partial class SettingsViewModel : BaseViewModel
     partial void OnSelectedThemeIndexChanged(int value)
     {
         _settingsService.Theme = (AppTheme)value;
-    }
-
-    [RelayCommand]
-    private void ResetTheme()
-    {
-        SelectedThemeIndex = (int)AppTheme.Auto;
     }
 }

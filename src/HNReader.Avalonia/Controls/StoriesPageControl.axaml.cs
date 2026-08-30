@@ -104,17 +104,6 @@ public partial class StoriesPageControl : UserControl
         }
     }
 
-    private async void OnLoadMoreClicked(object? sender, RoutedEventArgs e)
-    {
-        await ExecuteUiActionSafelyAsync(async () =>
-        {
-            if (DataContext is not PageViewModel vm) return;
-            if (!vm.LoadMoreStoriesCommand.CanExecute(null)) return;
-
-            await vm.LoadMoreStoriesCommand.ExecuteAsync(null);
-        }, "load more stories");
-    }
-
     private void OnToggleWebCommentCollapseClicked(object? sender, RoutedEventArgs e)
     {
         try

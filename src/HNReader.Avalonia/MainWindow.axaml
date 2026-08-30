@@ -3,7 +3,7 @@
         xmlns:ui="using:FluentAvalonia.UI.Controls"
         x:Class="HNReader.Avalonia.MainWindow"
         Icon="avares://HNReader.Avalonia/Assets/HnReaderIcon.ico"
-        Title="HN Reader"
+        Title="Reader"
         Width="1400" Height="900"
         WindowStartupLocation="CenterScreen"
         TransparencyLevelHint="Mica,AcrylicBlur,None"

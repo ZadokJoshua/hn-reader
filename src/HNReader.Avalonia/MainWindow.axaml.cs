@@ -36,10 +36,6 @@ public partial class MainWindow : Window
         _mainViewModel = mainViewModel;
         DataContext = _mainViewModel;
 
-        Width = 1400;
-        Height = 900;
-        Title = "HN Reader";
-
         if (global::Avalonia.Application.Current is App app && app.Services != null)
         {
             _navigationService = app.Services.GetService<NavigationService>();

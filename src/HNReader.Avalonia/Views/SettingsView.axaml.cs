@@ -123,9 +123,13 @@ public partial class SettingsView : UserControl
 
             var tempZip = Path.Combine(Path.GetTempPath(), $"hnreader-logs-{Guid.NewGuid():N}.zip");
 
+            // Rotate BEFORE zipping: rotation is what actually closes today's log
+            // file handle (via LogFileWriter.Rotate -> CloseCore/OpenNew). Zipping
+            // first would try to read a file still open for writing and fail with
+            // an IOException.
             await logger.FlushAsync();
-            await Task.Run(() => ZipFile.CreateFromDirectory(logger.LogDirectory, tempZip));
             await logger.RotateAsync();
+            await Task.Run(() => ZipFile.CreateFromDirectory(logger.LogDirectory, tempZip));
 
             using (var src = File.OpenRead(tempZip))
             await using (var dst = await file.OpenWriteAsync())
