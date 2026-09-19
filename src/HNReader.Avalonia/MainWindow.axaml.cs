@@ -22,7 +22,7 @@ public partial class MainWindow : Window
 
     // Tracked so turning the digest off while its page is open can navigate away
     // from it. OnPageNavigated already fires for every navigation.
-    private ApplicationPages _currentPage = ApplicationPages.New;
+    private ApplicationPages _currentPage = ApplicationPages.Top;
 
     // FluentAvalonia's NavigationView can apply its own default item
     // selection asynchronously while it finishes loading, which races with
@@ -81,8 +81,8 @@ public partial class MainWindow : Window
 
     private void RunInitialNavigation()
     {
-        SelectNavItemForPage(ApplicationPages.New);
-        _navigationService?.NavigateToPage(ApplicationPages.New);
+        SelectNavItemForPage(ApplicationPages.Top);
+        _navigationService?.NavigateToPage(ApplicationPages.Top);
         _initialNavigationDone = true;
     }
 
@@ -161,8 +161,7 @@ public partial class MainWindow : Window
 
     private void SelectNavItemForPage(ApplicationPages page)
     {
-        _suppressNavSelection = true;
-        NavView.SelectedItem = page switch
+        var target = page switch
         {
             ApplicationPages.New => NewPageNavItem,
             ApplicationPages.Top => TopPageNavItem,
@@ -174,6 +173,11 @@ public partial class MainWindow : Window
             ApplicationPages.Settings => SettingsPageNavItem,
             _ => NewPageNavItem
         };
+
+        if (ReferenceEquals(NavView.SelectedItem, target)) return;
+
+        _suppressNavSelection = true;
+        NavView.SelectedItem = target;
         _suppressNavSelection = false;
     }
 
