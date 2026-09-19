@@ -1,9 +1,10 @@
-using System;
+﻿using System;
 using System.IO;
 using System.Net;
 using System.Net.Http;
 using System.Threading;
 using System.Threading.Tasks;
+using AsyncImageLoader;
 using Avalonia;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Markup.Xaml;
@@ -13,6 +14,7 @@ using HNReader.Avalonia.Factories;
 using HNReader.Avalonia.Services;
 using HNReader.Avalonia.Views;
 using HNReader.Core.Enums;
+using HNReader.Core.Constants;
 using HNReader.Core.Interfaces;
 using HNReader.Core.Services;
 using HNReader.Core.Services.Logging;
@@ -37,6 +39,11 @@ public partial class App : Application
         TaskScheduler.UnobservedTaskException += OnUnobservedTaskException;
 
         Services = ConfigureServices(_logger);
+
+        // Must happen before the XAML loads, so no binding can run against the
+        // library default. Favicon requests are dispatched by sentinel; every other
+        // ImageLoader.Source (the digest preview images) still loads normally.
+        ImageLoader.AsyncImageLoader = Services.GetRequiredService<FaviconImageLoader>();
 
         AvaloniaXamlLoader.Load(this);
     }
@@ -158,6 +165,15 @@ public partial class App : Application
             sp.GetService<ILogger>()));
         services.AddSingleton<SettingsViewModel>();
 
+        // Singleton, unlike the story pages: the digest is fetched once and
+        // reused across navigations (see DigestPageViewModel's staleness
+        // window). Safe because it does not implement IDisposable, which
+        // NavigationService would otherwise call on navigate-away.
+        services.AddSingleton<DigestPageViewModel>(sp => new DigestPageViewModel(
+            sp.GetRequiredService<DigestClient>(),
+            sp.GetRequiredService<ISettingsService>(),
+            sp.GetService<ILogger>()));
+
         services.AddSingleton<MainViewModel>(sp => new MainViewModel(
             sp.GetRequiredService<Lazy<IFavoritesService>>(),
             sp.GetService<ILogger>()));
@@ -173,6 +189,7 @@ public partial class App : Application
         services.AddTransient<ShowView>();
         services.AddTransient<AskView>();
         services.AddTransient<SettingsView>();
+        services.AddTransient<DigestView>();
 
         services.AddHttpClient<HNClient>((sp, client) =>
         {
@@ -197,6 +214,40 @@ public partial class App : Application
             sp.GetRequiredService<IHttpClientFactory>().CreateClient(nameof(HNWebClient)),
             sp.GetService<ILogger>()));
 
+        // Our own digest server — the only non-Hacker-News host this app talks
+        // to, and only when the digest feature is switched on.
+        services.AddHttpClient<DigestClient>((sp, client) =>
+        {
+            client.BaseAddress = new Uri(AppFileNames.DIGEST_SERVER_BASE_URL);
+            client.Timeout = TimeSpan.FromSeconds(AppFileNames.DIGEST_HTTP_TIMEOUT_SECONDS);
+            client.DefaultRequestHeaders.Add("User-Agent", "HNReader/1.0");
+        });
+        services.AddTransient<DigestClient>(sp => new DigestClient(
+            sp.GetRequiredService<IHttpClientFactory>().CreateClient(nameof(DigestClient)),
+            sp.GetService<ILogger>()));
+
+        // Favicons. Singleton, unlike the clients above: this service IS its caches, and a
+        // transient would hand every caller an empty one.
+        services.AddHttpClient<FaviconService>((sp, client) =>
+        {
+            client.Timeout = TimeSpan.FromSeconds(AppFileNames.FAVICON_CHAIN_TIMEOUT_SECONDS + 2);
+            client.DefaultRequestHeaders.Add("User-Agent", "HNReader/1.0");
+        })
+        .ConfigurePrimaryHttpMessageHandler(() => new HttpClientHandler
+        {
+            AutomaticDecompression = DecompressionMethods.All,
+            AllowAutoRedirect = true,
+            MaxAutomaticRedirections = AppFileNames.FAVICON_MAX_REDIRECTS
+        });
+        services.AddSingleton<IFaviconService>(sp => new FaviconService(
+            sp.GetRequiredService<IHttpClientFactory>().CreateClient(nameof(FaviconService)),
+            AppPaths.FaviconCacheDirectory,
+            sp.GetService<ILogger>()));
+
+        services.AddSingleton<FaviconImageLoader>(sp => new FaviconImageLoader(
+            sp.GetRequiredService<IFaviconService>(),
+            sp.GetService<ILogger>()));
+
         services.AddSingleton<Func<ApplicationPages, BaseViewModel>>(x => name => name switch
         {
             ApplicationPages.Top => x.GetRequiredService<TopPageViewModel>(),
@@ -206,6 +257,7 @@ public partial class App : Application
             ApplicationPages.Show => x.GetRequiredService<ShowPageViewModel>(),
             ApplicationPages.Ask => x.GetRequiredService<AskPageViewModel>(),
             ApplicationPages.Settings => x.GetRequiredService<SettingsViewModel>(),
+            ApplicationPages.Digest => x.GetRequiredService<DigestPageViewModel>(),
             _ => throw new ArgumentOutOfRangeException(nameof(name), name, null)
         });
 
@@ -218,6 +270,7 @@ public partial class App : Application
             ApplicationPages.Show => x.GetRequiredService<ShowView>(),
             ApplicationPages.Ask => x.GetRequiredService<AskView>(),
             ApplicationPages.Settings => x.GetRequiredService<SettingsView>(),
+            ApplicationPages.Digest => x.GetRequiredService<DigestView>(),
             _ => throw new ArgumentOutOfRangeException(nameof(name), name, null)
         });
 

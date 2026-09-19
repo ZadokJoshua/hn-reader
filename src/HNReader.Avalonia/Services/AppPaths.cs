@@ -1,5 +1,6 @@
-using System;
+﻿using System;
 using System.IO;
+using HNReader.Core.Constants;
 
 namespace HNReader.Avalonia.Services;
 
@@ -18,6 +19,10 @@ public static class AppPaths
     public static string FavouritesDbPath => Path.Combine(LocalFolder, "favorites.db");
 
     public static string LogDirectory => Path.Combine(LocalFolder, "logs");
+
+    /// <summary>Cached favicon bytes, keyed by a hash of the host.</summary>
+    public static string FaviconCacheDirectory =>
+        Path.Combine(LocalFolder, AppFileNames.FAVICON_CACHE_FOLDER_NAME);
 
     private static string ResolveLocalFolder()
     {

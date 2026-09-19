@@ -1,4 +1,4 @@
-<Application xmlns="https://github.com/avaloniaui"
+﻿<Application xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:styling="using:FluentAvalonia.Styling"
              xmlns:conv="using:HNReader.Avalonia.Converters"
@@ -16,6 +16,73 @@
 
     <Application.Resources>
         <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <ResourceInclude Source="avares://HNReader.Avalonia/Styles/Icons.axaml" />
+            </ResourceDictionary.MergedDictionaries>
+
+            <!-- Phosphor icon font. The "#Phosphor" suffix must match the family name
+                 recorded inside the .ttf; get it wrong and glyphs silently render as
+                 blank boxes rather than raising an error. -->
+            <FontFamily x:Key="PhosphorFont">avares://HNReader.Avalonia/Assets/fonts/Phosphor.ttf#Phosphor</FontFamily>
+
+            <!-- Explicit, opaque values for the structural "surface" tokens pages paint
+                 as flat page/pane/card backgrounds (StoriesPageControl, DigestPageControl,
+                 and — via CardBorderStyle/SettingsCard — SettingsView). FluentAvaloniaUI's
+                 own tokens are compiled into the package with no readable source, and its
+                 light-theme values are designed as near-white, low-alpha fills meant to
+                 composite over a translucent Mica/Acrylic backdrop — not to stand alone as
+                 flat colour, which is how every page here actually uses them. That mismatch
+                 is invisible in dark theme (where the stock tokens still read as distinct
+                 blocks even flattened) but collapses light theme toward one flat near-white.
+                 Overriding both themes — not just light — makes the result fully
+                 predictable and no longer dependent on an unreadable third-party default;
+                 the dark values below are chosen to closely match what was already on
+                 screen, not to reverse-engineer FluentAvalonia's exact numbers. -->
+            <ResourceDictionary.ThemeDictionaries>
+                <ResourceDictionary x:Key="Light">
+                    <Color x:Key="LayerFillColorDefault">#FFF3F3F3</Color>
+                    <Color x:Key="LayerFillColorAlt">#FFFFFFFF</Color>
+                    <Color x:Key="CardBackgroundFillColorDefault">#FFFFFFFF</Color>
+                    <Color x:Key="CardStrokeColorDefault">#FFE1E1E1</Color>
+                    <SolidColorBrush x:Key="LayerFillColorDefaultBrush" Color="{StaticResource LayerFillColorDefault}" />
+                    <SolidColorBrush x:Key="LayerFillColorAltBrush" Color="{StaticResource LayerFillColorAlt}" />
+                    <SolidColorBrush x:Key="CardBackgroundFillColorDefaultBrush" Color="{StaticResource CardBackgroundFillColorDefault}" />
+                    <SolidColorBrush x:Key="CardStrokeColorDefaultBrush" Color="{StaticResource CardStrokeColorDefault}" />
+                
+                    <!-- Opaque nav pane. The window keeps its Mica/Acrylic hint, but the
+                         pane is painted solid: text composited over a translucent backdrop
+                         cannot use subpixel antialiasing and loses contrast against the
+                         blurred desktop behind it, which is what made the sidebar labels
+                         read as heavy and soft-edged. Both keys are needed - FluentAvalonia
+                         swaps to NavigationViewExpandedPaneBackground whenever the pane is
+                         not overlaying, which is the normal Left-mode case. -->
+                    <Color x:Key="NavigationViewPaneSurface">#FFF9F9F9</Color>
+                    <SolidColorBrush x:Key="NavigationViewDefaultPaneBackground" Color="{StaticResource NavigationViewPaneSurface}" />
+                    <SolidColorBrush x:Key="NavigationViewExpandedPaneBackground" Color="{StaticResource NavigationViewPaneSurface}" />
+                </ResourceDictionary>
+                <ResourceDictionary x:Key="Dark">
+                    <Color x:Key="LayerFillColorDefault">#FF202020</Color>
+                    <Color x:Key="LayerFillColorAlt">#FF2B2B2B</Color>
+                    <Color x:Key="CardBackgroundFillColorDefault">#FF323232</Color>
+                    <Color x:Key="CardStrokeColorDefault">#FF3F3F3F</Color>
+                    <SolidColorBrush x:Key="LayerFillColorDefaultBrush" Color="{StaticResource LayerFillColorDefault}" />
+                    <SolidColorBrush x:Key="LayerFillColorAltBrush" Color="{StaticResource LayerFillColorAlt}" />
+                    <SolidColorBrush x:Key="CardBackgroundFillColorDefaultBrush" Color="{StaticResource CardBackgroundFillColorDefault}" />
+                    <SolidColorBrush x:Key="CardStrokeColorDefaultBrush" Color="{StaticResource CardStrokeColorDefault}" />
+                
+                    <!-- Opaque nav pane. The window keeps its Mica/Acrylic hint, but the
+                         pane is painted solid: text composited over a translucent backdrop
+                         cannot use subpixel antialiasing and loses contrast against the
+                         blurred desktop behind it, which is what made the sidebar labels
+                         read as heavy and soft-edged. Both keys are needed - FluentAvalonia
+                         swaps to NavigationViewExpandedPaneBackground whenever the pane is
+                         not overlaying, which is the normal Left-mode case. -->
+                    <Color x:Key="NavigationViewPaneSurface">#FF1C1C1C</Color>
+                    <SolidColorBrush x:Key="NavigationViewDefaultPaneBackground" Color="{StaticResource NavigationViewPaneSurface}" />
+                    <SolidColorBrush x:Key="NavigationViewExpandedPaneBackground" Color="{StaticResource NavigationViewPaneSurface}" />
+                </ResourceDictionary>
+            </ResourceDictionary.ThemeDictionaries>
+
             <!-- HN Reader brand accent, pinned so the app looks the same regardless of
                  the OS accent-colour setting. -->
             <Color x:Key="HNReaderAccent">#FFFF6600</Color>
@@ -57,7 +124,9 @@
             <conv:HighlightBorderThicknessConverter x:Key="HighlightBorderThicknessConverter" />
             <conv:StringToUriConverter x:Key="StringToUriConverter" />
             <conv:BoolToOpacityConverter x:Key="BoolToOpacityConverter" />
-            <conv:RootDomainToFaviconUrlConverter x:Key="RootDomainToFaviconUrlConverter" />
+            <conv:BoolToDimOpacityConverter x:Key="BoolToDimOpacityConverter" />
+            <conv:FaviconHostToSourceConverter x:Key="FaviconHostToSourceConverter" />
+            <conv:IsNullConverter x:Key="IsNullConverter" />
         </ResourceDictionary>
     </Application.Resources>
 </Application>

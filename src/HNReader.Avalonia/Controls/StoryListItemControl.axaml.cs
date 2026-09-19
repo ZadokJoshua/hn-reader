@@ -1,4 +1,4 @@
-using Avalonia;
+﻿using Avalonia;
 using Avalonia.Controls;
 
 namespace HNReader.Avalonia.Controls;
@@ -78,12 +78,26 @@ public partial class StoryListItemControl : UserControl
         set => SetValue(IsFavoriteProperty, value);
     }
 
-    public static readonly StyledProperty<string> RootDomainProperty =
-        AvaloniaProperty.Register<StoryListItemControl, string>(nameof(RootDomain), string.Empty);
+    /// <summary>The domain shown under the title.</summary>
+    public static readonly StyledProperty<string> DisplayDomainProperty =
+        AvaloniaProperty.Register<StoryListItemControl, string>(nameof(DisplayDomain), string.Empty);
 
-    public string RootDomain
+    public string DisplayDomain
     {
-        get => GetValue(RootDomainProperty);
-        set => SetValue(RootDomainProperty, value);
+        get => GetValue(DisplayDomainProperty);
+        set => SetValue(DisplayDomainProperty, value);
+    }
+
+    /// <summary>
+    /// The host used to fetch the icon. Separate from <see cref="DisplayDomain"/> because
+    /// what is shown and what is fetched are different contracts.
+    /// </summary>
+    public static readonly StyledProperty<string> FaviconHostProperty =
+        AvaloniaProperty.Register<StoryListItemControl, string>(nameof(FaviconHost), string.Empty);
+
+    public string FaviconHost
+    {
+        get => GetValue(FaviconHostProperty);
+        set => SetValue(FaviconHostProperty, value);
     }
 }

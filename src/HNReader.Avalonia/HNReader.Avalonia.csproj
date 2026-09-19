@@ -2,6 +2,9 @@
 
   <ItemGroup>
     <ProjectReference Include="..\HNReader.Core\HNReader.Core.csproj" />
+    <!-- Transitive through Core, but declared explicitly: the XAML in this
+         project binds HNReader.Shared.Models types by name. -->
+    <ProjectReference Include="..\..\HNReader.Shared\HNReader.Shared.csproj" />
   </ItemGroup>
 
   <ItemGroup>

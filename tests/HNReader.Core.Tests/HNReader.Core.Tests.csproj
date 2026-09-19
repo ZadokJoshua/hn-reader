@@ -21,6 +21,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\HNReader.Core\HNReader.Core.csproj" />
+    <ProjectReference Include="..\..\HNReader.Shared\HNReader.Shared.csproj" />
   </ItemGroup>
 
 </Project>

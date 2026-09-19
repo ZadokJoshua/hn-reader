@@ -1,4 +1,4 @@
-<Window xmlns="https://github.com/avaloniaui"
+﻿<Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:ui="using:FluentAvalonia.UI.Controls"
         x:Class="HNReader.Avalonia.MainWindow"
@@ -7,7 +7,9 @@
         Width="1400" Height="900"
         WindowStartupLocation="CenterScreen"
         TransparencyLevelHint="Mica,AcrylicBlur,None"
-        Background="Transparent">
+        Background="Transparent"
+        UseLayoutRounding="True"
+        RenderOptions.TextRenderingMode="SubpixelAntialias">
 
     <ui:NavigationView x:Name="NavView"
                         PaneDisplayMode="Left"
@@ -18,36 +20,44 @@
 
         <ui:NavigationView.MenuItems>
             <ui:NavigationViewItemHeader Content="Browse" />
-            <ui:NavigationViewItem x:Name="NewPageNavItem" Content="New Stories">
-                <ui:NavigationViewItem.IconSource>
-                    <ui:SymbolIconSource Symbol="Clock" />
-                </ui:NavigationViewItem.IconSource>
-            </ui:NavigationViewItem>
             <ui:NavigationViewItem x:Name="TopPageNavItem" Content="Top Stories">
                 <ui:NavigationViewItem.IconSource>
-                    <ui:SymbolIconSource Symbol="Up" />
+                    <ui:FontIconSource FontFamily="{StaticResource PhosphorFont}" Glyph="{StaticResource IconTop}" />
+                </ui:NavigationViewItem.IconSource>
+            </ui:NavigationViewItem>
+            <ui:NavigationViewItem x:Name="NewPageNavItem" Content="New Stories">
+                <ui:NavigationViewItem.IconSource>
+                    <ui:FontIconSource FontFamily="{StaticResource PhosphorFont}" Glyph="{StaticResource IconClock}" />
                 </ui:NavigationViewItem.IconSource>
             </ui:NavigationViewItem>
             <ui:NavigationViewItem x:Name="BestPageNavItem" Content="Best Stories">
                 <ui:NavigationViewItem.IconSource>
-                    <ui:SymbolIconSource Symbol="Star" />
+                    <ui:FontIconSource FontFamily="{StaticResource PhosphorFont}" Glyph="{StaticResource IconTrophy}" />
                 </ui:NavigationViewItem.IconSource>
             </ui:NavigationViewItem>
             <ui:NavigationViewItem x:Name="ShowPageNavItem" Content="Show HN">
                 <ui:NavigationViewItem.IconSource>
-                    <ui:SymbolIconSource Symbol="Bookmark" />
+                    <ui:FontIconSource FontFamily="{StaticResource PhosphorFont}" Glyph="{StaticResource IconRocket}" />
                 </ui:NavigationViewItem.IconSource>
             </ui:NavigationViewItem>
             <ui:NavigationViewItem x:Name="AskPageNavItem" Content="Ask HN">
                 <ui:NavigationViewItem.IconSource>
-                    <ui:SymbolIconSource Symbol="Help" />
+                    <ui:FontIconSource FontFamily="{StaticResource PhosphorFont}" Glyph="{StaticResource IconAsk}" />
+                </ui:NavigationViewItem.IconSource>
+            </ui:NavigationViewItem>
+
+            <!-- IsVisible starts false: the digest is opt-in, and the item
+                 must not appear for a beat before the setting is applied. -->
+            <ui:NavigationViewItem x:Name="DigestPageNavItem" Content="Daily Digest" IsVisible="False">
+                <ui:NavigationViewItem.IconSource>
+                    <ui:FontIconSource FontFamily="{StaticResource PhosphorFont}" Glyph="{StaticResource IconNews}" />
                 </ui:NavigationViewItem.IconSource>
             </ui:NavigationViewItem>
 
             <ui:NavigationViewItemHeader Content="Personal" />
             <ui:NavigationViewItem x:Name="FavouritesPageNavItem" Content="Favorites">
                 <ui:NavigationViewItem.IconSource>
-                    <ui:SymbolIconSource Symbol="OutlineStar" />
+                    <ui:FontIconSource FontFamily="{StaticResource PhosphorFont}" Glyph="{StaticResource IconHeart}" />
                 </ui:NavigationViewItem.IconSource>
             </ui:NavigationViewItem>
         </ui:NavigationView.MenuItems>
@@ -55,7 +65,7 @@
         <ui:NavigationView.FooterMenuItems>
             <ui:NavigationViewItem x:Name="SettingsPageNavItem" Content="Settings">
                 <ui:NavigationViewItem.IconSource>
-                    <ui:SymbolIconSource Symbol="Settings" />
+                    <ui:FontIconSource FontFamily="{StaticResource PhosphorFont}" Glyph="{StaticResource IconGear}" />
                 </ui:NavigationViewItem.IconSource>
             </ui:NavigationViewItem>
         </ui:NavigationView.FooterMenuItems>

@@ -1,4 +1,4 @@
-<UserControl xmlns="https://github.com/avaloniaui"
+﻿<UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:ui="using:FluentAvalonia.UI.Controls"
              x:Class="HNReader.Avalonia.Views.SettingsView">
@@ -19,7 +19,7 @@
                     <StackPanel Spacing="20">
                         <StackPanel Orientation="Horizontal" Spacing="12">
                             <Border Classes="SettingsIconBadge">
-                                <ui:SymbolIcon Symbol="DarkTheme" FontSize="16" Foreground="White" />
+                                <ui:FontIcon Glyph="{StaticResource IconTheme}" FontSize="16" Foreground="White" />
                             </Border>
                             <TextBlock Text="Appearance" Classes="SubtitleTextBlockStyle" VerticalAlignment="Center" />
                         </StackPanel>
@@ -38,12 +38,42 @@
                     </StackPanel>
                 </Border>
 
+                <!-- Daily Digest -->
+                <Border Classes="SettingsCard">
+                    <StackPanel Spacing="20">
+                        <StackPanel Orientation="Horizontal" Spacing="12">
+                            <Border Classes="SettingsIconBadge">
+                                <ui:FontIcon Glyph="{StaticResource IconNews}" FontSize="16" Foreground="White" />
+                            </Border>
+                            <TextBlock Text="Daily Digest" Classes="SubtitleTextBlockStyle" VerticalAlignment="Center" />
+                        </StackPanel>
+
+                        <Grid ColumnDefinitions="*,Auto">
+                            <StackPanel Grid.Column="0" Spacing="4" Margin="0,0,16,0">
+                                <TextBlock Text="Show the daily digest" Classes="BodyStrongTextBlockStyle" />
+                                <TextBlock Text="Adds a Digest page with an AI-written summary of the day's stories, grouped by topic. Requires the HN Reader digest server; while this is off the app makes no requests to it."
+                                           Classes="CaptionTextBlockStyle"
+                                           TextWrapping="Wrap" />
+                            </StackPanel>
+                            <!-- OnContent/OffContent pinned deliberately: the
+                                 default labels differ in width, which makes the
+                                 Auto column jump as the switch toggles. -->
+                            <ToggleSwitch Grid.Column="1"
+                                          OnContent="On"
+                                          OffContent="Off"
+                                          IsChecked="{Binding IsDigestEnabled, Mode=TwoWay}"
+                                          IsEnabled="{Binding IsDigestConfigured}"
+                                          VerticalAlignment="Center" />
+                        </Grid>
+                    </StackPanel>
+                </Border>
+
                 <!-- Data & Diagnostics -->
                 <Border Classes="SettingsCard">
                     <StackPanel Spacing="20">
                         <StackPanel Orientation="Horizontal" Spacing="12">
                             <Border Classes="SettingsIconBadge">
-                                <ui:SymbolIcon Symbol="Save" FontSize="16" Foreground="White" />
+                                <ui:FontIcon Glyph="{StaticResource IconData}" FontSize="16" Foreground="White" />
                             </Border>
                             <TextBlock Text="Data &amp; Diagnostics" Classes="SubtitleTextBlockStyle" VerticalAlignment="Center" />
                         </StackPanel>
@@ -59,14 +89,14 @@
                                         Click="ExportFavoritesButton_Click"
                                         Classes="accent">
                                     <StackPanel Orientation="Horizontal" Spacing="6">
-                                        <ui:SymbolIcon Symbol="Save" FontSize="14" />
+                                        <ui:FontIcon Glyph="{StaticResource IconExport}" FontSize="14" />
                                         <TextBlock Text="Export favourites" />
                                     </StackPanel>
                                 </Button>
                                 <Button x:Name="ImportFavoritesButton"
                                         Click="ImportFavoritesButton_Click">
                                     <StackPanel Orientation="Horizontal" Spacing="6">
-                                        <ui:SymbolIcon Symbol="OpenFile" FontSize="14" />
+                                        <ui:FontIcon Glyph="{StaticResource IconImport}" FontSize="14" />
                                         <TextBlock Text="Import favourites" />
                                     </StackPanel>
                                 </Button>
@@ -89,7 +119,7 @@
                             <StackPanel Orientation="Horizontal" Spacing="8" Margin="0,8,0,0">
                                 <Button x:Name="ExportLogsButton" Click="ExportLogsButton_Click">
                                     <StackPanel Orientation="Horizontal" Spacing="6">
-                                        <ui:SymbolIcon Symbol="Save" FontSize="14" />
+                                        <ui:FontIcon Glyph="{StaticResource IconExport}" FontSize="14" />
                                         <TextBlock Text="Export logs" />
                                     </StackPanel>
                                 </Button>
@@ -98,7 +128,7 @@
                                         IsEnabled="{Binding CanReportBug}"
                                         ToolTip.Tip="Bug-report URL not configured yet">
                                     <StackPanel Orientation="Horizontal" Spacing="6">
-                                        <ui:SymbolIcon Symbol="ImportantFilled" FontSize="14" />
+                                        <ui:FontIcon Glyph="{StaticResource IconBug}" FontSize="14" />
                                         <TextBlock Text="Report a bug" />
                                     </StackPanel>
                                 </Button>

@@ -1,4 +1,4 @@
-<Styles xmlns="https://github.com/avaloniaui"
+﻿<Styles xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:ui="using:FluentAvalonia.UI.Controls">
 
@@ -63,6 +63,31 @@
         <Setter Property="MinWidth" Value="0" />
         <Setter Property="CornerRadius" Value="6" />
     </Style>
+    <!-- Hover lift for the icon-bearing buttons. The neutral scale(1) has to be declared
+         or the transition has nothing to animate from and the first hover snaps. 1.06,
+         not the more common 1.1: these sit in a dense list and a larger scale visibly
+         nudges the rows around them. -->
+    <Style Selector="Button.ActionButtonStyle, Button.CollapseButtonStyle">
+        <Setter Property="RenderTransform" Value="scale(1)" />
+        <Setter Property="Transitions">
+            <Transitions>
+                <TransformOperationsTransition Property="RenderTransform" Duration="0:0:0.12" Easing="CubicEaseOut" />
+                <BrushTransition Property="Background" Duration="0:0:0.12" />
+            </Transitions>
+        </Setter>
+    </Style>
+
+    <Style Selector="Button.ActionButtonStyle:pointerover, Button.CollapseButtonStyle:pointerover">
+        <Setter Property="RenderTransform" Value="scale(1.06)" />
+    </Style>
+
+    <!-- The story detail pane's URL. Only the pointer is changed: a hand belongs
+         on a link, while the action-row buttons keep the standard arrow. The
+         .hyperlink class came over from the WinUI port and matched nothing until
+         this block, so this selector is the sole thing it drives. -->
+    <Style Selector="Button.hyperlink">
+        <Setter Property="Cursor" Value="Hand" />
+    </Style>
 
     <Style Selector="TextBlock.MetaText">
         <Setter Property="FontSize" Value="12" />
@@ -70,12 +95,19 @@
         <Setter Property="VerticalAlignment" Value="Center" />
     </Style>
 
-    <Style Selector="TextBlock.MetaIcon">
-        <Setter Property="FontSize" Value="12" />
-        <Setter Property="Foreground" Value="{DynamicResource TextFillColorSecondaryBrush}" />
+    <!-- Every Phosphor glyph in the app. FontSize is set explicitly because FAFontIcon,
+         unlike FASymbolIcon, declares no 18px default - without this it would inherit the
+         ambient ~14 and icons would quietly change size. Call sites override as needed. -->
+    <Style Selector="ui|FontIcon">
+        <!-- DynamicResource, not Static: this file is a StyleInclude in
+             Application.Styles, which is built before Application.Resources exists,
+             so a static lookup here cannot see PhosphorFont. -->
+        <Setter Property="FontFamily" Value="{DynamicResource PhosphorFont}" />
+        <Setter Property="FontSize" Value="16" />
     </Style>
 
-    <Style Selector="ui|SymbolIcon.MetaIcon">
+    <!-- Dimmed 12px glyph for story/digest meta rows (author, time, comment count). -->
+    <Style Selector="ui|FontIcon.MetaIcon">
         <Setter Property="FontSize" Value="12" />
         <Setter Property="Foreground" Value="{DynamicResource TextFillColorSecondaryBrush}" />
     </Style>
@@ -86,6 +118,21 @@
         <Setter Property="BorderThickness" Value="1" />
         <Setter Property="CornerRadius" Value="8" />
         <Setter Property="Padding" Value="8,6" />
+    </Style>
+
+    <!-- The pane's section labels ("Browse", "Personal"). FluentAvaloniaUI already
+         sets NavigationViewItem itself to FontWeight Normal, so the items were never
+         bold - only these headers are, and the weight does NOT live on the header
+         control. Its template renders a TextBlock#HeaderText carrying an explicit
+         Theme (NavigationViewItemHeaderTextStyle, SemiBold), and an explicit Theme
+         beats inheritance - so a Setter on ui|NavigationViewItemHeader silently does
+         nothing. The template selector below is what actually reaches the text.
+         Dropped to Normal at caption size so the headers read as quiet dividers
+         rather than competing with the items they group. -->
+    <Style Selector="ui|NavigationViewItemHeader /template/ TextBlock#HeaderText">
+        <Setter Property="FontWeight" Value="Normal" />
+        <Setter Property="FontSize" Value="12" />
+        <Setter Property="Foreground" Value="{DynamicResource TextFillColorSecondaryBrush}" />
     </Style>
 
 </Styles>

@@ -65,4 +65,74 @@ public class SettingsServiceTests : IDisposable
         service.Theme = AppTheme.Dark;
         Assert.False(fired);
     }
+
+    // ── Digest feature toggle ────────────────────────────────────────────
+
+    [Fact]
+    public void IsDigestEnabled_DefaultsToOff()
+    {
+        var service = new SettingsService(_testSettingsDir);
+
+        // Opt-in on purpose: the digest depends on a server the user may not be
+        // running, so a fresh install makes no requests to it.
+        Assert.False(service.IsDigestEnabled);
+    }
+
+    [Fact]
+    public void IsDigestEnabled_SetAndGet_RoundTrips()
+    {
+        var service = new SettingsService(_testSettingsDir);
+        service.IsDigestEnabled = true;
+        Assert.True(service.IsDigestEnabled);
+    }
+
+    [Fact]
+    public void IsDigestEnabled_PersistsAcrossInstances()
+    {
+        new SettingsService(_testSettingsDir).IsDigestEnabled = true;
+
+        var reloaded = new SettingsService(_testSettingsDir);
+
+        Assert.True(reloaded.IsDigestEnabled);
+    }
+
+    [Fact]
+    public void IsDigestEnabled_TriggersChangedEvent()
+    {
+        var service = new SettingsService(_testSettingsDir);
+        bool? raised = null;
+        service.DigestEnabledChanged += (_, value) => raised = value;
+
+        service.IsDigestEnabled = true;
+
+        Assert.True(raised);
+    }
+
+    [Fact]
+    public void IsDigestEnabled_SettingSameValue_DoesNotRaise()
+    {
+        var service = new SettingsService(_testSettingsDir);
+        var raisedCount = 0;
+        service.DigestEnabledChanged += (_, _) => raisedCount++;
+
+        service.IsDigestEnabled = false;
+
+        Assert.Equal(0, raisedCount);
+    }
+
+    /// <summary>
+    /// The real upgrade path: a settings file written before the digest existed
+    /// has no IsDigestEnabled key at all, and must load with the feature off
+    /// rather than throwing.
+    /// </summary>
+    [Fact]
+    public void Load_SettingsFileFromBeforeTheDigestExisted_LeavesFeatureOff()
+    {
+        File.WriteAllText(_testSettingsFile, "{\"Theme\":2}");
+
+        var service = new SettingsService(_testSettingsDir);
+
+        Assert.Equal(AppTheme.Dark, service.Theme);
+        Assert.False(service.IsDigestEnabled);
+    }
 }

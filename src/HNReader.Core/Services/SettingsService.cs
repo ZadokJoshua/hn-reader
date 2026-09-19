@@ -14,6 +14,8 @@ public class SettingsService : ISettingsService
     private SettingsData _settings;
 
     public event EventHandler<AppTheme>? ThemeChanged;
+    public event EventHandler<bool>? DigestEnabledChanged;
+    public event EventHandler? SelectedDigestCategoriesChanged;
 
     public SettingsService(string settingsDirectory, ILogger? logger = null)
     {
@@ -34,6 +36,42 @@ public class SettingsService : ISettingsService
                 Save();
                 ThemeChanged?.Invoke(this, value);
             }
+        }
+    }
+
+    public bool IsDigestEnabled
+    {
+        get => _settings.IsDigestEnabled;
+        set
+        {
+            if (_settings.IsDigestEnabled != value)
+            {
+                _settings.IsDigestEnabled = value;
+                Save();
+                DigestEnabledChanged?.Invoke(this, value);
+            }
+        }
+    }
+
+    public IReadOnlyList<string> SelectedDigestCategories
+    {
+        get => _settings.SelectedDigestCategories;
+        set
+        {
+            var incoming = value?.ToList() ?? [];
+
+            // Order-insensitive comparison: this is a set of choices, and
+            // re-saving (and re-fetching the digest) because a checkbox list was
+            // enumerated in a different order would be pure churn.
+            if (_settings.SelectedDigestCategories.Count == incoming.Count &&
+                !_settings.SelectedDigestCategories.Except(incoming, StringComparer.OrdinalIgnoreCase).Any())
+            {
+                return;
+            }
+
+            _settings.SelectedDigestCategories = incoming;
+            Save();
+            SelectedDigestCategoriesChanged?.Invoke(this, EventArgs.Empty);
         }
     }
 
@@ -71,5 +109,13 @@ public class SettingsService : ISettingsService
     private class SettingsData
     {
         public AppTheme Theme { get; set; } = AppTheme.Auto;
+
+        // Absent from a settings.json written before the digest existed, which
+        // deserializes to this initializer rather than throwing — so upgrading
+        // an existing install just leaves the feature off.
+        public bool IsDigestEnabled { get; set; } = false;
+
+        // Empty means "all categories" — see ISettingsService for why.
+        public List<string> SelectedDigestCategories { get; set; } = [];
     }
 }

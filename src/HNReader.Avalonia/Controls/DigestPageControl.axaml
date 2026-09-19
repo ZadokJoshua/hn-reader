@@ -1,0 +1,426 @@
+﻿<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:ui="using:FluentAvalonia.UI.Controls"
+             xmlns:models="using:HNReader.Core.Models"
+             xmlns:asyncImageLoader="clr-namespace:AsyncImageLoader;assembly=AsyncImageLoader.Avalonia"
+             x:Class="HNReader.Avalonia.Controls.DigestPageControl">
+
+    <UserControl.Resources>
+        <!--
+            One digest story. Kept as a keyed DataTemplate rather than a custom
+            control because, unlike a story row, nothing here is reused elsewhere
+            and the item's own IsNoteExpanded is the only state involved.
+        -->
+        <DataTemplate x:Key="DigestItemTemplate" x:DataType="models:DigestItem">
+            <Border Classes="CardBorderStyle" Margin="0,0,0,12">
+                <!-- Text first, image second: the thumbnail is enrichment, and a
+                     card whose leading column is often empty reads as broken. -->
+                <Grid ColumnDefinitions="*,Auto">
+
+                    <!-- Preview image. Absent for plenty of pages, so the whole
+                         column collapses rather than leaving a hole. -->
+                    <Border Grid.Column="1"
+                            Width="112"
+                            Height="84"
+                            Margin="16,0,0,0"
+                            CornerRadius="8"
+                            ClipToBounds="True"
+                            VerticalAlignment="Top"
+                            Background="{DynamicResource LayerFillColorDefaultBrush}"
+                            IsVisible="{Binding HasImage}">
+                        <Image Stretch="UniformToFill"
+                               asyncImageLoader:ImageLoader.Source="{Binding ImageUrl}" />
+                    </Border>
+
+                    <StackPanel Grid.Column="0" Spacing="10">
+                        <TextBlock Text="{Binding Title}"
+                                   FontSize="16"
+                                   FontWeight="SemiBold"
+                                   TextWrapping="Wrap"
+                                   MaxLines="3"
+                                   TextTrimming="CharacterEllipsis" />
+
+                        <StackPanel Orientation="Horizontal" Spacing="16">
+                            <StackPanel Orientation="Horizontal" Spacing="5"
+                                        IsVisible="{Binding HasArticle}">
+                                <Panel Width="14" Height="14">
+                                    <ui:FontIcon Glyph="{StaticResource IconGlobe}"
+                                                 FontSize="13"
+                                                 Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                                                 IsVisible="{Binding #DigestFaviconImage.Source, Converter={StaticResource IsNullConverter}}" />
+                                    <Image x:Name="DigestFaviconImage" Width="14" Height="14"
+                                           asyncImageLoader:ImageLoader.Source="{Binding FaviconHost, Converter={StaticResource FaviconHostToSourceConverter}}" />
+                                </Panel>
+                                <TextBlock Text="{Binding DisplayDomain}" Classes="MetaText"
+                                           MaxWidth="220" TextTrimming="CharacterEllipsis" />
+                            </StackPanel>
+
+                            <!-- Self-post: stated outright, rather than leaving
+                                 the reader to infer it from a missing button. -->
+                            <Border Classes="ScoreBadge"
+                                    Padding="6,2"
+                                    IsVisible="{Binding HasArticle, Converter={StaticResource BoolToVisibilityConverter}, ConverterParameter=Inverse}">
+                                <TextBlock Text="Discussion only" Classes="MetaText" />
+                            </Border>
+                        </StackPanel>
+
+                        <TextBlock Text="{Binding Summary}"
+                                   FontSize="13"
+                                   TextWrapping="Wrap"
+                                   Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+
+                        <!-- Community reaction. Collapsed by default: these run to
+                             several hundred characters, and expanded in every card
+                             they bury the summaries above. -->
+                        <StackPanel Spacing="6" IsVisible="{Binding HasNote}">
+                            <Button Classes="CollapseButtonStyle"
+                                    HorizontalAlignment="Left"
+                                    Tag="{Binding}"
+                                    Click="OnToggleNoteClicked">
+                                <StackPanel Orientation="Horizontal" Spacing="6">
+                                    <ui:FontIcon Glyph="{StaticResource IconComment}" Classes="MetaIcon" />
+                                    <TextBlock Text="{Binding NoteToggleText}"
+                                               FontSize="12"
+                                               Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+                                </StackPanel>
+                            </Button>
+
+                            <Border Background="{DynamicResource LayerFillColorDefaultBrush}"
+                                    BorderBrush="{DynamicResource CardStrokeColorDefaultBrush}"
+                                    BorderThickness="1"
+                                    CornerRadius="6"
+                                    Padding="12,10"
+                                    IsVisible="{Binding IsNoteExpanded}">
+                                <TextBlock Text="{Binding CommentNote}"
+                                           FontSize="13"
+                                           LineHeight="20"
+                                           TextWrapping="Wrap"
+                                           Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+                            </Border>
+                        </StackPanel>
+
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                            <Button Classes="accent ActionButtonStyle"
+                                    Tag="{Binding}"
+                                    Click="OnOpenArticleClicked"
+                                    IsVisible="{Binding HasArticle}">
+                                <StackPanel Orientation="Horizontal" Spacing="6">
+                                    <ui:FontIcon Glyph="{StaticResource IconGlobeFilled}" FontSize="14" />
+                                    <TextBlock Text="Read article" />
+                                </StackPanel>
+                            </Button>
+
+                            <Button Classes="ActionButtonStyle"
+                                    Tag="{Binding}"
+                                    Click="OnOpenHnClicked">
+                                <StackPanel Orientation="Horizontal" Spacing="6">
+                                    <ui:FontIcon Glyph="{StaticResource IconComment}" FontSize="14" />
+                                    <TextBlock Text="Discussion on HN" />
+                                </StackPanel>
+                            </Button>
+
+                            <Button Classes="ActionButtonStyle"
+                                    Tag="{Binding}"
+                                    Click="OnCopyLinkClicked"
+                                    ToolTip.Tip="Copy link">
+                                <ui:FontIcon Glyph="{StaticResource IconLink}" FontSize="14" />
+                            </Button>
+                        </StackPanel>
+                    </StackPanel>
+                </Grid>
+            </Border>
+        </DataTemplate>
+    </UserControl.Resources>
+
+    <!--
+        Two panes, mirroring StoriesPageControl. A single scrolling column would
+        mean every story of every category in one list; the category rail keeps
+        each pane bounded and makes the taxonomy itself the navigation.
+    -->
+    <Grid Background="{DynamicResource LayerFillColorDefaultBrush}" ColumnDefinitions="320,*">
+
+        <!-- Category rail. Hidden unless there is content, so it is never left
+             half-populated beside an error or empty state. -->
+        <Border Grid.Column="0"
+                BorderBrush="{DynamicResource DividerStrokeColorDefaultBrush}"
+                BorderThickness="0,0,1,0"
+                IsVisible="{Binding ShowContent, Converter={StaticResource BoolToVisibilityConverter}}">
+            <Grid RowDefinitions="Auto,*">
+                <Border Grid.Row="0"
+                        Padding="20,16"
+                        Background="{DynamicResource LayerFillColorAltBrush}">
+                    <StackPanel Spacing="8">
+                        <TextBlock Text="{Binding PageTitle}" FontSize="20" FontWeight="SemiBold" />
+
+                        <!-- The date, and nothing else. Counts of categories and
+                             stories are already visible in the rail below. -->
+                        <StackPanel Orientation="Horizontal" Spacing="6">
+                            <ui:FontIcon Glyph="{StaticResource IconClock}" Classes="MetaIcon" />
+                            <TextBlock Text="{Binding GeneratedAtDisplay}" Classes="MetaText" />
+                        </StackPanel>
+
+                        <!-- Quiet note for "this isn't today's" / "today's is
+                             being built". Deliberately not an error: stale
+                             content is still perfectly readable. -->
+                        <StackPanel Orientation="Horizontal" Spacing="6"
+                                    IsVisible="{Binding HasStatusNote}">
+                            <ui:ProgressRing Width="12" Height="12"
+                                             IsActive="{Binding IsGenerating}"
+                                             IsVisible="{Binding IsGenerating}" />
+                            <TextBlock Text="{Binding StatusNote}"
+                                       FontSize="12"
+                                       Foreground="{DynamicResource TextFillColorTertiaryBrush}"
+                                       TextWrapping="Wrap" />
+                        </StackPanel>
+
+                        <StackPanel Orientation="Horizontal" Spacing="8" Margin="0,4,0,0">
+                            <Button Classes="ActionButtonStyle"
+                                    Command="{Binding RefreshCommand}"
+                                    ToolTip.Tip="Refresh"
+                                    IsEnabled="{Binding IsRefreshing, Converter={StaticResource BoolToVisibilityConverter}, ConverterParameter=Inverse}">
+                                <StackPanel Orientation="Horizontal" Spacing="6">
+                                    <ui:FontIcon Glyph="{StaticResource IconRefresh}"
+                                                   FontSize="14"
+                                                   IsVisible="{Binding IsRefreshing, Converter={StaticResource BoolToVisibilityConverter}, ConverterParameter=Inverse}" />
+                                    <ui:ProgressRing Width="14" Height="14"
+                                                     IsActive="{Binding IsRefreshing}"
+                                                     IsVisible="{Binding IsRefreshing}" />
+                                    <TextBlock Text="Refresh" />
+                                </StackPanel>
+                            </Button>
+
+                            <!-- The category picker. This is what the taxonomy
+                                 endpoint is for: the full server-side list,
+                                 independent of what today's digest happens to
+                                 contain, so a user can choose what they follow. -->
+                            <Button Classes="ActionButtonStyle" ToolTip.Tip="Choose categories">
+                                <StackPanel Orientation="Horizontal" Spacing="6">
+                                    <ui:FontIcon Glyph="{StaticResource IconFilter}" FontSize="14" />
+                                    <TextBlock Text="{Binding CategoryFilterLabel}" />
+                                </StackPanel>
+                                <Button.Flyout>
+                                    <Flyout Placement="BottomEdgeAlignedLeft">
+                                        <Grid RowDefinitions="Auto,*,Auto" Width="300" MaxHeight="420">
+                                            <TextBlock Grid.Row="0"
+                                                       Text="Categories to follow"
+                                                       Classes="BodyStrongTextBlockStyle"
+                                                       Margin="0,0,0,8" />
+
+                                            <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
+                                                <ItemsControl ItemsSource="{Binding AvailableCategories}">
+                                                    <ItemsControl.ItemTemplate>
+                                                        <DataTemplate x:DataType="models:DigestCategoryOption">
+                                                            <CheckBox Content="{Binding Name}"
+                                                                      IsChecked="{Binding IsSelected, Mode=TwoWay}"
+                                                                      Margin="0,2"
+                                                                      Click="OnCategoryOptionToggled" />
+                                                        </DataTemplate>
+                                                    </ItemsControl.ItemTemplate>
+                                                </ItemsControl>
+                                            </ScrollViewer>
+
+                                            <StackPanel Grid.Row="2"
+                                                        Orientation="Horizontal"
+                                                        Spacing="8"
+                                                        Margin="0,12,0,0">
+                                                <Button Content="Apply"
+                                                        Classes="accent"
+                                                        Command="{Binding ApplyCategorySelectionCommand}"
+                                                        IsEnabled="{Binding CanApplyCategorySelection}"
+                                                        Click="OnCloseCategoryFlyout" />
+                                                <Button Content="Select all"
+                                                        Command="{Binding SelectAllCategoriesCommand}" />
+                                            </StackPanel>
+                                        </Grid>
+                                    </Flyout>
+                                </Button.Flyout>
+                            </Button>
+                        </StackPanel>
+                    </StackPanel>
+                </Border>
+
+                <ListBox Grid.Row="1"
+                         Padding="8"
+                         ItemsSource="{Binding Categories}"
+                         SelectedItem="{Binding SelectedCategory, Mode=TwoWay}"
+                         SelectionMode="Single">
+                    <ListBox.ItemTemplate>
+                        <DataTemplate x:DataType="models:DigestCategorySection">
+                            <!-- Dimmed rather than hidden when today's digest has
+                                 nothing for the category: the taxonomy stays
+                                 visible and stable between runs. -->
+                            <Grid ColumnDefinitions="*,Auto"
+                                  Margin="4,8"
+                                  Opacity="{Binding HasItems, Converter={StaticResource BoolToDimOpacityConverter}}">
+                                <TextBlock Grid.Column="0"
+                                           Text="{Binding Name}"
+                                           FontSize="13"
+                                           FontWeight="SemiBold"
+                                           TextWrapping="Wrap"
+                                           VerticalAlignment="Center"
+                                           Margin="0,0,8,0" />
+                                <!-- No badge at all for "nothing today" — a "0" reads as
+                                     broken rather than as the category simply being quiet
+                                     today. The row itself stays (dimmed, above), so the
+                                     full followed set doesn't reshuffle day to day. -->
+                                <Border Grid.Column="1" Classes="ScoreBadge" Padding="8,2" MinWidth="30"
+                                        IsVisible="{Binding HasItems}">
+                                    <TextBlock Text="{Binding ItemCount}"
+                                               FontSize="12"
+                                               HorizontalAlignment="Center" />
+                                </Border>
+                            </Grid>
+                        </DataTemplate>
+                    </ListBox.ItemTemplate>
+                </ListBox>
+            </Grid>
+        </Border>
+
+        <!-- Right pane. Every state is a sibling in this one cell, toggled by
+             the shared BoolToVisibilityConverter — same shape as
+             StoriesPageControl's loading/error/empty layers. -->
+        <Grid Grid.Column="1" Background="{DynamicResource LayerFillColorAltBrush}">
+
+            <Grid RowDefinitions="Auto,*"
+                  IsVisible="{Binding ShowContent, Converter={StaticResource BoolToVisibilityConverter}}">
+                <Border Grid.Row="0" Classes="CardBorderStyle" Margin="24,20,24,0">
+                    <StackPanel Spacing="8">
+                        <TextBlock Text="{Binding SelectedCategory.Name}"
+                                   Classes="SubtitleTextBlockStyle"
+                                   TextWrapping="Wrap" />
+                        <TextBlock Text="{Binding SelectedCategory.Summary}"
+                                   FontSize="14"
+                                   LineHeight="21"
+                                   TextWrapping="Wrap"
+                                   Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                                   IsVisible="{Binding SelectedCategory.HasSummary}" />
+                    </StackPanel>
+                </Border>
+
+                <ScrollViewer Grid.Row="1"
+                              Padding="24,16,24,20"
+                              VerticalScrollBarVisibility="Auto"
+                              HorizontalScrollBarVisibility="Disabled">
+                    <Grid>
+                        <!-- Non-virtualized ItemsControl: a category holds at most
+                             MaxItemsPerCategory stories, and no container recycling
+                             means an expanded note can't reappear on another row. -->
+                        <ItemsControl ItemsSource="{Binding SelectedCategory.Items}"
+                                      ItemTemplate="{StaticResource DigestItemTemplate}"
+                                      IsVisible="{Binding SelectedCategory.HasItems}" />
+
+                        <Border HorizontalAlignment="Center"
+                                VerticalAlignment="Top"
+                                Margin="0,40,0,0"
+                                Classes="CardBorderStyle"
+                                Padding="32"
+                                MaxWidth="380"
+                                IsVisible="{Binding SelectedCategory.HasItems, Converter={StaticResource BoolToVisibilityConverter}, ConverterParameter=Inverse}">
+                            <StackPanel Spacing="12" HorizontalAlignment="Center">
+                                <TextBlock Text="Nothing here today"
+                                           FontSize="16"
+                                           FontWeight="SemiBold"
+                                           HorizontalAlignment="Center" />
+                                <TextBlock Text="No stories were classified into this category in the latest digest."
+                                           FontSize="13"
+                                           TextWrapping="Wrap"
+                                           TextAlignment="Center"
+                                           Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+                            </StackPanel>
+                        </Border>
+                    </Grid>
+                </ScrollViewer>
+            </Grid>
+
+            <Grid IsVisible="{Binding ShowLoading, Converter={StaticResource BoolToVisibilityConverter}}">
+                <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="16">
+                    <ui:ProgressRing Width="48" Height="48" IsActive="{Binding IsLoading}" />
+                    <TextBlock Text="Loading today's digest..."
+                               FontSize="14"
+                               Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+                </StackPanel>
+            </Grid>
+
+            <Grid IsVisible="{Binding ShowError, Converter={StaticResource BoolToVisibilityConverter}}">
+                <Border HorizontalAlignment="Center" VerticalAlignment="Center"
+                        Classes="CardBorderStyle" Padding="32" MaxWidth="380">
+                    <StackPanel Spacing="16" HorizontalAlignment="Center">
+                        <ui:FontIcon Glyph="{StaticResource IconWarning}" FontSize="48"
+                                       Foreground="{DynamicResource SystemFillColorCriticalBrush}" />
+                        <TextBlock Text="Unable to load the digest"
+                                   FontSize="16" FontWeight="SemiBold" HorizontalAlignment="Center" />
+                        <TextBlock Text="{Binding ErrorMessage}"
+                                   FontSize="13"
+                                   TextWrapping="Wrap"
+                                   TextAlignment="Center"
+                                   Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+                        <Button Content="Try Again"
+                                Command="{Binding RetryCommand}"
+                                HorizontalAlignment="Center"
+                                Classes="accent" />
+                    </StackPanel>
+                </Border>
+            </Grid>
+
+            <!-- Not an error: the server returns 404 here until the first nightly
+                 run completes, so this state is styled as information. -->
+            <Grid IsVisible="{Binding ShowNotGenerated, Converter={StaticResource BoolToVisibilityConverter}}">
+                <Border HorizontalAlignment="Center" VerticalAlignment="Center"
+                        Classes="CardBorderStyle" Padding="32" MaxWidth="380">
+                    <StackPanel Spacing="16" HorizontalAlignment="Center">
+                        <ui:FontIcon Glyph="{StaticResource IconClock}" FontSize="48"
+                                       Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+                        <TextBlock Text="No digest yet"
+                                   FontSize="16" FontWeight="SemiBold" HorizontalAlignment="Center" />
+                        <TextBlock Text="{Binding NotGeneratedMessage}"
+                                   FontSize="13"
+                                   TextWrapping="Wrap"
+                                   TextAlignment="Center"
+                                   Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+                        <Button Content="Check again"
+                                Command="{Binding RefreshCommand}"
+                                HorizontalAlignment="Center" />
+                    </StackPanel>
+                </Border>
+            </Grid>
+
+            <Grid IsVisible="{Binding ShowEmptyState, Converter={StaticResource BoolToVisibilityConverter}}">
+                <Border HorizontalAlignment="Center" VerticalAlignment="Center"
+                        Classes="CardBorderStyle" Padding="32" MaxWidth="380">
+                    <StackPanel Spacing="12" HorizontalAlignment="Center">
+                        <TextBlock Text="Nothing in today's digest"
+                                   FontSize="18" FontWeight="SemiBold" HorizontalAlignment="Center" />
+                        <TextBlock Text="The digest ran but produced no categories."
+                                   FontSize="13"
+                                   TextWrapping="Wrap"
+                                   TextAlignment="Center"
+                                   Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+                    </StackPanel>
+                </Border>
+            </Grid>
+
+            <!-- Safety net for turning the feature off while this page is open.
+                 The nav item disappears in that case, so this is rarely seen. -->
+            <Grid IsVisible="{Binding ShowDisabledState, Converter={StaticResource BoolToVisibilityConverter}}">
+                <Border HorizontalAlignment="Center" VerticalAlignment="Center"
+                        Classes="CardBorderStyle" Padding="32" MaxWidth="380">
+                    <StackPanel Spacing="16" HorizontalAlignment="Center">
+                        <ui:FontIcon Glyph="{StaticResource IconNews}" FontSize="48"
+                                       Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+                        <TextBlock Text="Daily Digest is turned off"
+                                   FontSize="16" FontWeight="SemiBold" HorizontalAlignment="Center" />
+                        <TextBlock Text="Enable it in Settings to see an AI summary of the day's Hacker News stories."
+                                   FontSize="13"
+                                   TextWrapping="Wrap"
+                                   TextAlignment="Center"
+                                   Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+                        <Button Content="Open settings"
+                                Click="OnOpenSettingsClicked"
+                                HorizontalAlignment="Center"
+                                Classes="accent" />
+                    </StackPanel>
+                </Border>
+            </Grid>
+        </Grid>
+    </Grid>
+</UserControl>

@@ -284,7 +284,7 @@ public abstract partial class PageViewModel : BaseViewModel
             });
             await Task.WhenAll(favTasks);
 
-            ApplySearchFilter();
+            AppendToSearchFilter(stories);
 
             _nextOffset = nextOffset;
             HasMoreItems = stories.Count >= PageSize;
@@ -309,6 +309,47 @@ public abstract partial class PageViewModel : BaseViewModel
     [RelayCommand]
     private void ClearSearch() => SearchText = string.Empty;
 
+    /// <summary>
+    /// Adds newly loaded stories to the filtered view, for the load-more path.
+    /// <para>
+    /// Load-more used to call <see cref="ApplySearchFilter"/>, which clears
+    /// FilteredStories and rebuilds it. Because that is the collection bound to
+    /// the list, clearing it made the list drop its selection and the two-way
+    /// binding write null back into <see cref="SelectedStory"/>; restoring the
+    /// selection a moment later then re-triggered the list's
+    /// AutoScrollToSelectedItem (on by default), which yanked the viewport back
+    /// up to the selected story every time a page loaded — right after the user
+    /// had deliberately scrolled to the bottom.
+    /// </para>
+    /// <para>
+    /// Appending produces the same result, since existing matches already sit in
+    /// order at the head and new stories belong at the tail. Selection is never
+    /// lost, so nothing re-triggers the scroll, and existing rows aren't
+    /// needlessly rebuilt. No selection-preservation dance is needed here for
+    /// the same reason.
+    /// </para>
+    /// </summary>
+    protected void AppendToSearchFilter(IEnumerable<Story> newStories)
+    {
+        var term = SearchText?.Trim() ?? string.Empty;
+        var hasFilter = !string.IsNullOrWhiteSpace(term);
+
+        foreach (var story in newStories)
+        {
+            if (hasFilter && !StoryMatchesFilter(story, term))
+            {
+                continue;
+            }
+
+            FilteredStories.Add(story);
+        }
+    }
+
+    /// <summary>
+    /// Rebuilds the filtered view from scratch — for full reloads and search
+    /// term changes, where resetting scroll position is the correct behaviour.
+    /// Load-more deliberately uses <see cref="AppendToSearchFilter"/> instead.
+    /// </summary>
     protected void ApplySearchFilter()
     {
         var term = SearchText?.Trim() ?? string.Empty;
@@ -797,6 +838,6 @@ public abstract partial class PageViewModel : BaseViewModel
 
         return (!string.IsNullOrEmpty(story.Title) && story.Title.Contains(term, StringComparison.OrdinalIgnoreCase)) ||
                (!string.IsNullOrEmpty(story.By) && story.By.Contains(term, StringComparison.OrdinalIgnoreCase)) ||
-               (!string.IsNullOrEmpty(story.RootDomain) && story.RootDomain.Contains(term, StringComparison.OrdinalIgnoreCase));
+               (!string.IsNullOrEmpty(story.DisplayDomain) && story.DisplayDomain.Contains(term, StringComparison.OrdinalIgnoreCase));
     }
 }

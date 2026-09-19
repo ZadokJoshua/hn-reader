@@ -1,0 +1,75 @@
+<!--
+    Phosphor icon glyphs - https://phosphoricons.com (MIT, see Assets/fonts/Phosphor-LICENSE.txt).
+
+    Each value is the private-use codepoint of one glyph in Assets/fonts/Phosphor.ttf,
+    consumed as <ui:FontIcon Glyph="{StaticResource IconX}" />. Naming them here rather
+    than inlining the hex keeps ~46 call sites readable and makes swapping any single
+    icon a one-line change.
+
+    The codepoints come from @phosphor-icons/web@2.1.2 src/regular/style.css. Only the
+    Regular weight ships; note that Phosphor publishes each weight as a SEPARATE font
+    family ("Phosphor", "Phosphor-Light", ...), so a different weight means a different
+    .ttf and a different family name, not a FontWeight setter.
+-->
+<ResourceDictionary xmlns="https://github.com/avaloniaui"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <!-- Navigation -->
+    <!-- trend-up : Top Stories -->
+    <x:String x:Key="IconTop">&#xE4AE;</x:String>
+    <!-- clock : New Stories; time-ago meta -->
+    <x:String x:Key="IconClock">&#xE19A;</x:String>
+    <!-- trophy : Best Stories -->
+    <x:String x:Key="IconTrophy">&#xE67E;</x:String>
+    <!-- rocket-launch : Show HN -->
+    <x:String x:Key="IconRocket">&#xE3FE;</x:String>
+    <!-- question : Ask HN -->
+    <x:String x:Key="IconAsk">&#xE3E8;</x:String>
+    <!-- newspaper : Daily Digest; digest section badge -->
+    <x:String x:Key="IconNews">&#xE344;</x:String>
+    <!-- heart : Favorites -->
+    <x:String x:Key="IconHeart">&#xE2A8;</x:String>
+    <!-- gear : Settings -->
+    <x:String x:Key="IconGear">&#xE270;</x:String>
+    <!-- Story rows and detail -->
+    <!-- arrow-up : score badge -->
+    <x:String x:Key="IconUpvote">&#xE08E;</x:String>
+    <!-- chat-circle : comment counts and the Comments section -->
+    <x:String x:Key="IconComment">&#xE168;</x:String>
+    <!-- user : author -->
+    <x:String x:Key="IconUser">&#xE4C2;</x:String>
+    <!-- star : favourite toggle / favorited marker -->
+    <x:String x:Key="IconStar">&#xE46A;</x:String>
+    <!-- link : story URL bar, Copy Link -->
+    <x:String x:Key="IconLink">&#xE2E2;</x:String>
+    <!-- copy : Copy Title -->
+    <x:String x:Key="IconCopy">&#xE1CA;</x:String>
+    <!-- arrow-square-out : View on HN -->
+    <x:String x:Key="IconExternal">&#xE5DE;</x:String>
+    <!-- x : clear search -->
+    <x:String x:Key="IconDismiss">&#xE4F6;</x:String>
+    <!-- warning-circle : error states -->
+    <x:String x:Key="IconWarning">&#xE4E2;</x:String>
+    <!-- Digest -->
+    <!-- globe : Read article button -->
+    <x:String x:Key="IconGlobeFilled">&#xE288;</x:String>
+    <!-- arrow-clockwise : refresh digest -->
+    <x:String x:Key="IconRefresh">&#xE036;</x:String>
+    <!-- funnel : choose categories -->
+    <x:String x:Key="IconFilter">&#xE266;</x:String>
+    <!-- Settings -->
+    <!-- moon-stars : Appearance section badge -->
+    <x:String x:Key="IconTheme">&#xE58E;</x:String>
+    <!-- database : Data and Diagnostics section badge -->
+    <x:String x:Key="IconData">&#xE1DE;</x:String>
+    <!-- download-simple : export favourites / logs -->
+    <x:String x:Key="IconExport">&#xE20C;</x:String>
+    <!-- folder-open : import favourites -->
+    <x:String x:Key="IconImport">&#xE256;</x:String>
+    <!-- bug : report a bug -->
+    <x:String x:Key="IconBug">&#xE5F4;</x:String>
+    <!-- Favicon fallback -->
+    <!-- globe-simple : placeholder when a site has no favicon -->
+    <x:String x:Key="IconGlobe">&#xE28E;</x:String>
+
+</ResourceDictionary>

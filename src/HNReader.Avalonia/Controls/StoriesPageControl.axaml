@@ -1,4 +1,4 @@
-<UserControl xmlns="https://github.com/avaloniaui"
+﻿<UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:controls="using:HNReader.Avalonia.Controls"
              xmlns:ui="using:FluentAvalonia.UI.Controls"
@@ -92,7 +92,7 @@
                                 Command="{Binding ClearSearchCommand}"
                                 ToolTip.Tip="Clear search"
                                 IsVisible="{Binding SearchText, Converter={StaticResource BoolToVisibilityConverter}}">
-                            <ui:SymbolIcon Symbol="Dismiss" FontSize="12" Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+                            <ui:FontIcon Glyph="{StaticResource IconDismiss}" FontSize="12" Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
                         </Button>
                     </Grid>
                 </StackPanel>
@@ -116,7 +116,8 @@
                                 TimeAgo="{Binding TimeAgo}"
                                 By="{Binding By}"
                                 IsFavorite="{Binding IsFavorite}"
-                                RootDomain="{Binding RootDomain}" />
+                                DisplayDomain="{Binding DisplayDomain}"
+                                FaviconHost="{Binding FaviconHost}" />
                         </DataTemplate>
                     </ListBox.ItemTemplate>
                 </ListBox>
@@ -159,7 +160,7 @@
                             Padding="32"
                             MaxWidth="320">
                         <StackPanel Spacing="16" HorizontalAlignment="Center">
-                            <ui:SymbolIcon Symbol="ImportantFilled" FontSize="48" Foreground="{DynamicResource SystemFillColorCriticalBrush}" />
+                            <ui:FontIcon Glyph="{StaticResource IconWarning}" FontSize="48" Foreground="{DynamicResource SystemFillColorCriticalBrush}" />
                             <TextBlock Text="Unable to load stories" FontSize="16" FontWeight="SemiBold" HorizontalAlignment="Center" />
                             <TextBlock Text="{Binding ErrorMessage}"
                                        TextWrapping="Wrap"
@@ -226,23 +227,23 @@
                         <StackPanel Orientation="Horizontal" Spacing="12">
                             <Border Background="{StaticResource HNAccentBrush}" CornerRadius="4" Padding="8,4">
                                 <StackPanel Orientation="Horizontal" Spacing="4">
-                                    <ui:SymbolIcon Symbol="Up" FontSize="11" Foreground="White" />
+                                    <ui:FontIcon Glyph="{StaticResource IconUpvote}" FontSize="11" Foreground="White" />
                                     <TextBlock Text="{Binding SelectedStory.DisplayScore}" FontWeight="Bold" Foreground="White" FontSize="12" />
                                 </StackPanel>
                             </Border>
 
                             <StackPanel Orientation="Horizontal" Spacing="4" VerticalAlignment="Center">
-                                <ui:SymbolIcon Symbol="Contact" Classes="MetaIcon" />
+                                <ui:FontIcon Glyph="{StaticResource IconUser}" Classes="MetaIcon" />
                                 <TextBlock Text="{Binding SelectedStory.By}" Classes="MetaText" />
                             </StackPanel>
 
                             <StackPanel Orientation="Horizontal" Spacing="4" VerticalAlignment="Center">
-                                <ui:SymbolIcon Symbol="Clock" Classes="MetaIcon" />
+                                <ui:FontIcon Glyph="{StaticResource IconClock}" Classes="MetaIcon" />
                                 <TextBlock Text="{Binding SelectedStory.TimeAgo}" Classes="MetaText" />
                             </StackPanel>
 
                             <StackPanel Orientation="Horizontal" Spacing="4" VerticalAlignment="Center">
-                                <ui:SymbolIcon Symbol="Comment" Classes="MetaIcon" />
+                                <ui:FontIcon Glyph="{StaticResource IconComment}" Classes="MetaIcon" />
                                 <TextBlock Classes="MetaText">
                                     <Run Text="{Binding SelectedStory.CommentCount}" />
                                     <Run Text="comments" />
@@ -255,7 +256,7 @@
                                 Padding="12,10"
                                 IsVisible="{Binding SelectedStory.Url, Converter={StaticResource BoolToVisibilityConverter}}">
                             <Grid ColumnDefinitions="Auto,*">
-                                <ui:SymbolIcon Symbol="Link" FontSize="14" Foreground="{DynamicResource TextFillColorSecondaryBrush}" Margin="0,0,10,0" VerticalAlignment="Center" />
+                                <ui:FontIcon Glyph="{StaticResource IconLink}" FontSize="14" Foreground="{DynamicResource TextFillColorSecondaryBrush}" Margin="0,0,10,0" VerticalAlignment="Center" />
                                 <Button Grid.Column="1"
                                         Content="{Binding SelectedStory.Url}"
                                         Click="OnOpenStoryUrlClicked"
@@ -287,7 +288,7 @@
                         <StackPanel Orientation="Horizontal" Spacing="8" Margin="10">
                             <Button Click="OnToggleFavoriteClicked" Classes="ActionButtonStyle" ToolTip.Tip="Add to favorites">
                                 <StackPanel Orientation="Horizontal" Spacing="6">
-                                    <ui:SymbolIcon Symbol="Star" FontSize="14" />
+                                    <ui:FontIcon Glyph="{StaticResource IconStar}" FontSize="14" />
                                     <TextBlock Text="{Binding FavoriteButtonText}" FontSize="12" />
                                 </StackPanel>
                             </Button>
@@ -296,19 +297,19 @@
                                     IsEnabled="{Binding SelectedStory.Url, Converter={StaticResource BoolToVisibilityConverter}}"
                                     ToolTip.Tip="Copy link to clipboard">
                                 <StackPanel Orientation="Horizontal" Spacing="6">
-                                    <ui:SymbolIcon Symbol="Link" FontSize="14" />
+                                    <ui:FontIcon Glyph="{StaticResource IconLink}" FontSize="14" />
                                     <TextBlock Text="Copy Link" FontSize="12" />
                                 </StackPanel>
                             </Button>
                             <Button Click="OnCopyTitleClicked" Classes="ActionButtonStyle" ToolTip.Tip="Copy title to clipboard">
                                 <StackPanel Orientation="Horizontal" Spacing="6">
-                                    <ui:SymbolIcon Symbol="Copy" FontSize="14" />
+                                    <ui:FontIcon Glyph="{StaticResource IconCopy}" FontSize="14" />
                                     <TextBlock Text="Copy Title" FontSize="12" />
                                 </StackPanel>
                             </Button>
                             <Button Click="OnViewOnHnClicked" Classes="ActionButtonStyle" ToolTip.Tip="View on Hacker News">
                                 <StackPanel Orientation="Horizontal" Spacing="6">
-                                    <ui:SymbolIcon Symbol="Go" FontSize="14" />
+                                    <ui:FontIcon Glyph="{StaticResource IconExternal}" FontSize="14" />
                                     <TextBlock Text="View on HN" FontSize="12" />
                                 </StackPanel>
                             </Button>
@@ -322,7 +323,7 @@
 
                         <Grid Grid.Row="0" Margin="20,20,20,12" ColumnDefinitions="*,Auto">
                             <StackPanel Orientation="Horizontal" Spacing="10">
-                                <ui:SymbolIcon Symbol="Comment" FontSize="18" />
+                                <ui:FontIcon Glyph="{StaticResource IconComment}" FontSize="18" />
                                 <TextBlock Text="Comments" FontSize="16" FontWeight="SemiBold" VerticalAlignment="Center" />
                                 <Border Background="{DynamicResource LayerFillColorDefaultBrush}" CornerRadius="10" Padding="8,4">
                                     <TextBlock Text="{Binding SelectedStory.CommentCount}" FontSize="12" FontWeight="SemiBold" />
@@ -358,7 +359,7 @@
                         <StackPanel Grid.Row="1" Margin="20,0,20,20"
                                     HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="12"
                                     IsVisible="{Binding HasCommentsError, Converter={StaticResource BoolToVisibilityConverter}}">
-                            <ui:SymbolIcon Symbol="ImportantFilled" FontSize="32" Foreground="{DynamicResource SystemFillColorCriticalBrush}" />
+                            <ui:FontIcon Glyph="{StaticResource IconWarning}" FontSize="32" Foreground="{DynamicResource SystemFillColorCriticalBrush}" />
                             <TextBlock Text="{Binding CommentsErrorMessage}"
                                        FontSize="14"
                                        TextWrapping="Wrap"
@@ -371,7 +372,7 @@
                         <StackPanel Grid.Row="1" Margin="20,0,20,20"
                                     HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="8"
                                     IsVisible="{Binding ShowNoCommentsMessage, Converter={StaticResource BoolToVisibilityConverter}}">
-                            <ui:SymbolIcon Symbol="Comment" FontSize="32" Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+                            <ui:FontIcon Glyph="{StaticResource IconComment}" FontSize="32" Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
                             <TextBlock Text="No comments yet" FontSize="14" Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
                         </StackPanel>
 

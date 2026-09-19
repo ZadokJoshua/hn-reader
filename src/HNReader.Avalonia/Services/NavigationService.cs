@@ -2,6 +2,7 @@ using System;
 using Avalonia.Controls;
 using HNReader.Avalonia.Factories;
 using HNReader.Core.Enums;
+using HNReader.Core.Interfaces;
 using HNReader.Core.Viewmodels;
 
 namespace HNReader.Avalonia.Services;
@@ -41,6 +42,9 @@ public class NavigationService(PageFactory pageFactory)
         var viewModel = pageFactory.GetPageViewModel(page);
         pageInstance.DataContext = viewModel;
 
+        // else-if, never a second if: a ViewModel must not be able to load twice
+        // by satisfying both branches.
         if (viewModel is PageViewModel pageViewModel) _ = pageViewModel.PopulateListAsync();
+        else if (viewModel is IInitializableViewModel initializable) _ = initializable.InitializeAsync();
     }
 }
