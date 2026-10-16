@@ -26,7 +26,10 @@ public static class AppPaths
 
     private static string ResolveLocalFolder()
     {
-        var baseDir = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
+        // Without Create, a missing ~/.config (fresh Linux account) returns "" and the folder lands in the working directory.
+        var baseDir = Environment.GetFolderPath(
+            Environment.SpecialFolder.ApplicationData,
+            Environment.SpecialFolderOption.Create);
         var folder = Path.Combine(baseDir, "HNReader");
         Directory.CreateDirectory(folder);
         return folder;

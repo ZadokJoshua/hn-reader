@@ -1,6 +1,5 @@
-﻿<Application xmlns="https://github.com/avaloniaui"
+<Application xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-             xmlns:styling="using:FluentAvalonia.Styling"
              xmlns:conv="using:HNReader.Avalonia.Converters"
              x:Class="HNReader.Avalonia.App"
              RequestedThemeVariant="Default"
@@ -9,15 +8,32 @@
     <Application.DataTemplates>
     </Application.DataTemplates>
 
+    <!-- Order matters: the theme first, the app's class styles second. Reversed,
+         the theme's control defaults win over the app's own styles wherever the
+         two set the same property. -->
     <Application.Styles>
-        <styling:FluentAvaloniaTheme />
+        <FluentTheme>
+            <!-- Pins the accent so the app looks the same regardless of the OS
+                 accent-colour setting. Palettes rather than hand-written
+                 SystemAccentColorLight1..3/Dark1..3: ColorPaletteResources
+                 regenerates those shades per variant with the theme's own
+                 algorithm, and it is what actually reaches ToggleSwitch,
+                 CheckBox, Slider, TextBox focus and list selection. -->
+            <FluentTheme.Palettes>
+                <ColorPaletteResources x:Key="Light" Accent="#FFFF6600" />
+                <ColorPaletteResources x:Key="Dark" Accent="#FFFF6600" />
+            </FluentTheme.Palettes>
+        </FluentTheme>
         <StyleInclude Source="avares://HNReader.Avalonia/Styles/Resources.axaml" />
+        <StyleInclude Source="avares://HNReader.Avalonia/Styles/MarkdownLinks.axaml" />
+        <StyleInclude Source="avares://HNReader.Avalonia/Styles/MarkdownComments.axaml" />
     </Application.Styles>
 
     <Application.Resources>
         <ResourceDictionary>
             <ResourceDictionary.MergedDictionaries>
                 <ResourceInclude Source="avares://HNReader.Avalonia/Styles/Icons.axaml" />
+                <ResourceInclude Source="avares://HNReader.Avalonia/Styles/Tokens.axaml" />
             </ResourceDictionary.MergedDictionaries>
 
             <!-- Phosphor icon font. The "#Phosphor" suffix must match the family name
@@ -25,95 +41,41 @@
                  blank boxes rather than raising an error. -->
             <FontFamily x:Key="PhosphorFont">avares://HNReader.Avalonia/Assets/fonts/Phosphor.ttf#Phosphor</FontFamily>
 
-            <!-- Explicit, opaque values for the structural "surface" tokens pages paint
-                 as flat page/pane/card backgrounds (StoriesPageControl, DigestPageControl,
-                 and — via CardBorderStyle/SettingsCard — SettingsView). FluentAvaloniaUI's
-                 own tokens are compiled into the package with no readable source, and its
-                 light-theme values are designed as near-white, low-alpha fills meant to
-                 composite over a translucent Mica/Acrylic backdrop — not to stand alone as
-                 flat colour, which is how every page here actually uses them. That mismatch
-                 is invisible in dark theme (where the stock tokens still read as distinct
-                 blocks even flattened) but collapses light theme toward one flat near-white.
-                 Overriding both themes — not just light — makes the result fully
-                 predictable and no longer dependent on an unreadable third-party default;
-                 the dark values below are chosen to closely match what was already on
-                 screen, not to reverse-engineer FluentAvalonia's exact numbers. -->
-            <ResourceDictionary.ThemeDictionaries>
-                <ResourceDictionary x:Key="Light">
-                    <Color x:Key="LayerFillColorDefault">#FFF3F3F3</Color>
-                    <Color x:Key="LayerFillColorAlt">#FFFFFFFF</Color>
-                    <Color x:Key="CardBackgroundFillColorDefault">#FFFFFFFF</Color>
-                    <Color x:Key="CardStrokeColorDefault">#FFE1E1E1</Color>
-                    <SolidColorBrush x:Key="LayerFillColorDefaultBrush" Color="{StaticResource LayerFillColorDefault}" />
-                    <SolidColorBrush x:Key="LayerFillColorAltBrush" Color="{StaticResource LayerFillColorAlt}" />
-                    <SolidColorBrush x:Key="CardBackgroundFillColorDefaultBrush" Color="{StaticResource CardBackgroundFillColorDefault}" />
-                    <SolidColorBrush x:Key="CardStrokeColorDefaultBrush" Color="{StaticResource CardStrokeColorDefault}" />
-                
-                    <!-- Opaque nav pane. The window keeps its Mica/Acrylic hint, but the
-                         pane is painted solid: text composited over a translucent backdrop
-                         cannot use subpixel antialiasing and loses contrast against the
-                         blurred desktop behind it, which is what made the sidebar labels
-                         read as heavy and soft-edged. Both keys are needed - FluentAvalonia
-                         swaps to NavigationViewExpandedPaneBackground whenever the pane is
-                         not overlaying, which is the normal Left-mode case. -->
-                    <Color x:Key="NavigationViewPaneSurface">#FFF9F9F9</Color>
-                    <SolidColorBrush x:Key="NavigationViewDefaultPaneBackground" Color="{StaticResource NavigationViewPaneSurface}" />
-                    <SolidColorBrush x:Key="NavigationViewExpandedPaneBackground" Color="{StaticResource NavigationViewPaneSurface}" />
-                </ResourceDictionary>
-                <ResourceDictionary x:Key="Dark">
-                    <Color x:Key="LayerFillColorDefault">#FF202020</Color>
-                    <Color x:Key="LayerFillColorAlt">#FF2B2B2B</Color>
-                    <Color x:Key="CardBackgroundFillColorDefault">#FF323232</Color>
-                    <Color x:Key="CardStrokeColorDefault">#FF3F3F3F</Color>
-                    <SolidColorBrush x:Key="LayerFillColorDefaultBrush" Color="{StaticResource LayerFillColorDefault}" />
-                    <SolidColorBrush x:Key="LayerFillColorAltBrush" Color="{StaticResource LayerFillColorAlt}" />
-                    <SolidColorBrush x:Key="CardBackgroundFillColorDefaultBrush" Color="{StaticResource CardBackgroundFillColorDefault}" />
-                    <SolidColorBrush x:Key="CardStrokeColorDefaultBrush" Color="{StaticResource CardStrokeColorDefault}" />
-                
-                    <!-- Opaque nav pane. The window keeps its Mica/Acrylic hint, but the
-                         pane is painted solid: text composited over a translucent backdrop
-                         cannot use subpixel antialiasing and loses contrast against the
-                         blurred desktop behind it, which is what made the sidebar labels
-                         read as heavy and soft-edged. Both keys are needed - FluentAvalonia
-                         swaps to NavigationViewExpandedPaneBackground whenever the pane is
-                         not overlaying, which is the normal Left-mode case. -->
-                    <Color x:Key="NavigationViewPaneSurface">#FF1C1C1C</Color>
-                    <SolidColorBrush x:Key="NavigationViewDefaultPaneBackground" Color="{StaticResource NavigationViewPaneSurface}" />
-                    <SolidColorBrush x:Key="NavigationViewExpandedPaneBackground" Color="{StaticResource NavigationViewPaneSurface}" />
-                </ResourceDictionary>
-            </ResourceDictionary.ThemeDictionaries>
 
-            <!-- HN Reader brand accent, pinned so the app looks the same regardless of
-                 the OS accent-colour setting. -->
-            <Color x:Key="HNReaderAccent">#FFFF6600</Color>
-            <SolidColorBrush x:Key="HNReaderAccentBrush" Color="{StaticResource HNReaderAccent}" />
+            <!-- Brand plumbing for the STOCK control themes.
+                 The app's own colours all live in Styles/Tokens.axaml; the keys
+                 below exist only to push the brand into controls the app does not
+                 template itself (accent Button, ToggleSwitch, CheckBox, the toast
+                 card). They are deliberately named after the theme that consumes
+                 them - they are an adapter, not part of the app's palette.
 
-            <!-- Override FluentAvalonia's accent-fill tokens so the brand colour propagates to
-                 AccentButtonStyle, NavigationView selection indicator, ProgressRing, etc. -->
+                 SystemAccentColor is kept as a belt-and-braces for anything that
+                 reads the raw colour; the per-variant shades are generated by
+                 FluentTheme.Palettes in Application.Styles rather than hand-written. -->
             <Color x:Key="SystemAccentColor">#FFFF6600</Color>
-            <Color x:Key="SystemAccentColorLight1">#FFFF6600</Color>
-            <Color x:Key="SystemAccentColorLight2">#FFFF7A26</Color>
-            <Color x:Key="SystemAccentColorLight3">#FFFF944D</Color>
-            <Color x:Key="SystemAccentColorDark1">#FFE65C00</Color>
-            <Color x:Key="SystemAccentColorDark2">#FFCC5200</Color>
-            <Color x:Key="SystemAccentColorDark3">#FFB34700</Color>
 
-            <SolidColorBrush x:Key="AccentFillColorDefaultBrush" Color="{StaticResource HNReaderAccent}" />
-            <SolidColorBrush x:Key="AccentFillColorSecondaryBrush" Color="{StaticResource HNReaderAccent}" Opacity="0.9" />
-            <SolidColorBrush x:Key="AccentFillColorTertiaryBrush" Color="{StaticResource HNReaderAccent}" Opacity="0.8" />
-            <SolidColorBrush x:Key="AccentFillColorDisabledBrush" Color="{StaticResource HNReaderAccent}" Opacity="0.4" />
-            <SolidColorBrush x:Key="AccentTextFillColorPrimaryBrush" Color="{StaticResource HNReaderAccent}" />
-            <SolidColorBrush x:Key="AccentTextFillColorSecondaryBrush" Color="{StaticResource HNReaderAccent}" Opacity="0.9" />
-            <SolidColorBrush x:Key="AccentTextFillColorDisabledBrush" Color="{StaticResource HNReaderAccent}" Opacity="0.4" />
+            <SolidColorBrush x:Key="AccentFillColorDefaultBrush" Color="#FFFF6600" />
+            <SolidColorBrush x:Key="AccentFillColorSecondaryBrush" Color="#FFFF6600" Opacity="0.9" />
+            <SolidColorBrush x:Key="AccentFillColorTertiaryBrush" Color="#FFFF6600" Opacity="0.8" />
+            <SolidColorBrush x:Key="AccentFillColorDisabledBrush" Color="#FFFF6600" Opacity="0.4" />
+
+            <!-- Accent as TEXT, so these take the AA-contrast variant rather than
+                 the raw brand hue (see HnAccentTextBrush in Tokens.axaml). -->
+            <SolidColorBrush x:Key="AccentTextFillColorPrimaryBrush" Color="#FFB34700" />
+            <SolidColorBrush x:Key="AccentTextFillColorSecondaryBrush" Color="#FFB34700" Opacity="0.9" />
+            <SolidColorBrush x:Key="AccentTextFillColorDisabledBrush" Color="#FFB34700" Opacity="0.4" />
+
             <SolidColorBrush x:Key="TextOnAccentFillColorPrimaryBrush" Color="#FFFFFFFF" />
             <SolidColorBrush x:Key="TextOnAccentFillColorSecondaryBrush" Color="#FFFFFFFF" Opacity="0.9" />
             <SolidColorBrush x:Key="TextOnAccentFillColorDisabledBrush" Color="#FFFFFFFF" Opacity="0.7" />
 
             <!-- Recolor the built-in toast notification's top accent stripe so
                  confirmations (copy/favourite) rhyme with the brand instead of
-                 Avalonia's default green/blue. Warning/Error stay semantic. -->
-            <SolidColorBrush x:Key="NotificationCardSuccessBackgroundBrush" Color="{StaticResource HNReaderAccent}" />
-            <SolidColorBrush x:Key="NotificationCardInformationBackgroundBrush" Color="{StaticResource HNReaderAccent}" />
+                 Avalonia's default green/blue. Warning/Error stay semantic.
+                 These two belong to Avalonia's own NotificationCard, not to any
+                 third-party theme, so they outlive the FluentAvalonia removal. -->
+            <SolidColorBrush x:Key="NotificationCardSuccessBackgroundBrush" Color="#FFFF6600" />
+            <SolidColorBrush x:Key="NotificationCardInformationBackgroundBrush" Color="#FFFF6600" />
 
             <conv:BoolToVisibilityConverter x:Key="BoolToVisibilityConverter" />
             <conv:BoolToCollapseTextConverter x:Key="BoolToCollapseTextConverter" />

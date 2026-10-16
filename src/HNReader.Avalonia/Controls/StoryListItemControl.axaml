@@ -1,6 +1,6 @@
 ﻿<UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-             xmlns:ui="using:FluentAvalonia.UI.Controls"
+             xmlns:c="using:HNReader.Avalonia.Controls"
              xmlns:asyncImageLoader="clr-namespace:AsyncImageLoader;assembly=AsyncImageLoader.Avalonia"
              x:Class="HNReader.Avalonia.Controls.StoryListItemControl">
 
@@ -18,7 +18,7 @@
                 MinWidth="50"
                 Margin="0,0,12,0">
             <StackPanel HorizontalAlignment="Center" Spacing="2">
-                <ui:FontIcon Glyph="{StaticResource IconUpvote}" FontSize="14" Foreground="#FF6600" HorizontalAlignment="Center" />
+                <c:IconGlyph Glyph="{StaticResource IconUpvote}" FontSize="14" Foreground="{DynamicResource HnAccentBrush}" HorizontalAlignment="Center" />
                 <TextBlock Text="{Binding Score, RelativeSource={RelativeSource AncestorType=UserControl}}"
                            FontWeight="SemiBold"
                            FontSize="13"
@@ -41,9 +41,9 @@
                      shows while the icon is still being fetched and stays for good when the
                      site has none, so nothing reflows when an icon arrives late. -->
                 <Panel Width="14" Height="14">
-                    <ui:FontIcon Glyph="{StaticResource IconGlobe}"
+                    <c:IconGlyph Glyph="{StaticResource IconGlobe}"
                                  FontSize="13"
-                                 Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                                 Foreground="{DynamicResource HnTextSecondaryBrush}"
                                  IsVisible="{Binding #FaviconImage.Source, Converter={StaticResource IsNullConverter}}" />
                     <Image x:Name="FaviconImage" Width="14" Height="14"
                            asyncImageLoader:ImageLoader.Source="{Binding FaviconHost, RelativeSource={RelativeSource AncestorType=UserControl}, Converter={StaticResource FaviconHostToSourceConverter}}" />
@@ -57,19 +57,19 @@
 
             <StackPanel Orientation="Horizontal" Spacing="16">
                 <StackPanel Orientation="Horizontal" Spacing="4">
-                    <ui:FontIcon Glyph="{StaticResource IconComment}" FontSize="12" Classes="MetaIcon" />
+                    <c:IconGlyph Glyph="{StaticResource IconComment}" FontSize="12" Classes="MetaIcon" />
                     <TextBlock FontSize="12" Classes="MetaText"
                                Text="{Binding Descendants, RelativeSource={RelativeSource AncestorType=UserControl}}" />
                 </StackPanel>
 
                 <StackPanel Orientation="Horizontal" Spacing="4">
-                    <ui:FontIcon Glyph="{StaticResource IconClock}" FontSize="12" Classes="MetaIcon" />
+                    <c:IconGlyph Glyph="{StaticResource IconClock}" FontSize="12" Classes="MetaIcon" />
                     <TextBlock FontSize="12" Classes="MetaText"
                                Text="{Binding TimeAgo, RelativeSource={RelativeSource AncestorType=UserControl}}" />
                 </StackPanel>
 
                 <StackPanel Orientation="Horizontal" Spacing="4">
-                    <ui:FontIcon Glyph="{StaticResource IconUser}" FontSize="12" Classes="MetaIcon" />
+                    <c:IconGlyph Glyph="{StaticResource IconUser}" FontSize="12" Classes="MetaIcon" />
                     <TextBlock FontSize="12" Classes="MetaText"
                                Text="{Binding By, RelativeSource={RelativeSource AncestorType=UserControl}}" />
                 </StackPanel>
@@ -77,10 +77,10 @@
         </StackPanel>
 
         <!-- Favorite Indicator -->
-        <ui:FontIcon Grid.Column="2"
+        <c:IconGlyph Grid.Column="2"
                        Glyph="{StaticResource IconStar}"
                        FontSize="16"
-                       Foreground="#FF6600"
+                       Foreground="{DynamicResource HnAccentBrush}"
                        VerticalAlignment="Top"
                        Margin="8,2,0,0"
                        ToolTip.Tip="Favorited"

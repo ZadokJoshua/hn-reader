@@ -14,8 +14,6 @@ public class SettingsService : ISettingsService
     private SettingsData _settings;
 
     public event EventHandler<AppTheme>? ThemeChanged;
-    public event EventHandler<bool>? DigestEnabledChanged;
-    public event EventHandler? SelectedDigestCategoriesChanged;
 
     public SettingsService(string settingsDirectory, ILogger? logger = null)
     {
@@ -39,39 +37,16 @@ public class SettingsService : ISettingsService
         }
     }
 
-    public bool IsDigestEnabled
+    public bool ConfirmCommentLinks
     {
-        get => _settings.IsDigestEnabled;
+        get => _settings.ConfirmCommentLinks;
         set
         {
-            if (_settings.IsDigestEnabled != value)
+            if (_settings.ConfirmCommentLinks != value)
             {
-                _settings.IsDigestEnabled = value;
+                _settings.ConfirmCommentLinks = value;
                 Save();
-                DigestEnabledChanged?.Invoke(this, value);
             }
-        }
-    }
-
-    public IReadOnlyList<string> SelectedDigestCategories
-    {
-        get => _settings.SelectedDigestCategories;
-        set
-        {
-            var incoming = value?.ToList() ?? [];
-
-            // Order-insensitive comparison: this is a set of choices, and
-            // re-saving (and re-fetching the digest) because a checkbox list was
-            // enumerated in a different order would be pure churn.
-            if (_settings.SelectedDigestCategories.Count == incoming.Count &&
-                !_settings.SelectedDigestCategories.Except(incoming, StringComparer.OrdinalIgnoreCase).Any())
-            {
-                return;
-            }
-
-            _settings.SelectedDigestCategories = incoming;
-            Save();
-            SelectedDigestCategoriesChanged?.Invoke(this, EventArgs.Empty);
         }
     }
 
@@ -80,7 +55,14 @@ public class SettingsService : ISettingsService
         try
         {
             var json = JsonSerializer.Serialize(_settings, CoreHelper.JsonSerializerOptions);
-            File.WriteAllText(_settingsFilePath, json);
+
+            // Write to a sibling temp file and swap it in, so a crash or power loss
+            // mid-write cannot leave a truncated settings.json (which Load would
+            // then discard, silently resetting the user's preferences).
+            Directory.CreateDirectory(Path.GetDirectoryName(_settingsFilePath)!);
+            var tempPath = _settingsFilePath + ".tmp";
+            File.WriteAllText(tempPath, json);
+            File.Move(tempPath, _settingsFilePath, overwrite: true);
             _logger?.LogDebug("Settings", "settings saved", context: null);
         }
         catch (Exception ex)
@@ -97,6 +79,14 @@ public class SettingsService : ISettingsService
             {
                 var json = File.ReadAllText(_settingsFilePath);
                 _settings = JsonSerializer.Deserialize<SettingsData>(json) ?? new SettingsData();
+
+                // A hand-edited or newer-version file can hold a number that is not
+                // a member of the enum; fall back rather than carry it into the UI.
+                if (!Enum.IsDefined(_settings.Theme))
+                {
+                    _logger?.LogWarning("Settings", "unknown theme value; using default", context: null);
+                    _settings.Theme = AppTheme.Auto;
+                }
             }
         }
         catch (Exception ex)
@@ -110,12 +100,7 @@ public class SettingsService : ISettingsService
     {
         public AppTheme Theme { get; set; } = AppTheme.Auto;
 
-        // Absent from a settings.json written before the digest existed, which
-        // deserializes to this initializer rather than throwing — so upgrading
-        // an existing install just leaves the feature off.
-        public bool IsDigestEnabled { get; set; } = false;
-
-        // Empty means "all categories" — see ISettingsService for why.
-        public List<string> SelectedDigestCategories { get; set; } = [];
+        // Defaults to true so a settings file written before this existed still prompts.
+        public bool ConfirmCommentLinks { get; set; } = true;
     }
 }

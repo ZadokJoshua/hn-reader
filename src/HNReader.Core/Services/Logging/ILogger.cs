@@ -39,10 +39,4 @@ public interface ILogger : IDisposable
     /// <summary>Force the current file to flush and close cleanly. Awaitable.</summary>
     System.Threading.Tasks.Task FlushAsync();
 
-    /// <summary>
-    /// Drain pending entries to the current file, close its OS handle, and open a
-    /// fresh log file. Use before reading/copying the just-closed file (e.g. log
-    /// export zipping) to avoid sharing-violation errors.
-    /// </summary>
-    System.Threading.Tasks.Task RotateAsync();
 }

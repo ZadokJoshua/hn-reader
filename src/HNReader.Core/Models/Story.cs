@@ -60,7 +60,7 @@ public class Story : BaseHNItem, INotifyPropertyChanged
 
     /// <summary>
     /// Registrable domain of <see cref="Url"/> - <c>bbc.co.uk</c>, not <c>co.uk</c>.
-    /// Kept for the search filter and the WinUI binding that already consume it.
+    /// Kept for the search filter, which consumes it.
     /// For fetching an icon use <see cref="FaviconHost"/>; for captions use
     /// <see cref="DisplayDomain"/>.
     /// </summary>

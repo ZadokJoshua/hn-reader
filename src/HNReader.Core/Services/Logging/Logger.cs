@@ -182,28 +182,6 @@ public sealed class Logger : ILogger
         });
     }
 
-    public Task RotateAsync()
-    {
-        return Task.Run(() =>
-        {
-            try
-            {
-                // Drain pending entries to the *current* file before we close it.
-                _writer.Flush();
-                while (_channel.Reader.TryRead(out _)) { }
-                _writer.Flush();
-
-                var newPath = Path.Combine(LogDirectory, LoggingPaths.BuildLogFileName(DateTimeOffset.UtcNow));
-                _writer.Rotate(newPath);
-                lock (_pathLock) _currentPath = newPath;
-            }
-            catch (Exception ex)
-            {
-                Debug.WriteLine($"[Logger] RotateAsync failed: {ex.Message}");
-            }
-        });
-    }
-
     public void Dispose()
     {
         try { _channel.Writer.TryComplete(); } catch { }

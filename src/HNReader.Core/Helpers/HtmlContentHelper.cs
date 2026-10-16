@@ -80,6 +80,77 @@ public static class HtmlContentHelper
         // (must happen after so entities inside markdown syntax are correct)
         processed = WebUtility.HtmlDecode(processed);
 
-        return processed.Trim();
+        return NormalizeBullets(processed.Trim());
     }
+
+    // A line that starts with one bullet character followed by whitespace and some text.
+    private static readonly Regex BulletLineRegex = new(
+        @"^[ \t]{0,3}(?<mark>[o\-+=\u2022\u00B7\u25E6\u2023])[ \t]+(?=\S)",
+        RegexOptions.Compiled);
+
+    /// <summary>
+    /// HN has no list syntax, so people draw bullets by hand ("o item", "- item", a pasted
+    /// bullet character), one per paragraph. Markdown only recognises some of those, and the
+    /// renderer draws "-" as a hollow circle that reads as the letter O, so they are all
+    /// rewritten to "*", the one marker that renders as a plain disc.
+    /// </summary>
+    /// <remarks>
+    /// "-" and "+" are unambiguous list markers in markdown already, so they are always
+    /// rewritten. The others ("o", "=" and bullet characters) are ordinary text on their own -
+    /// a sentence can begin "o brother" - so they only count when two or more consecutive
+    /// items use them, which is what a hand-drawn list looks like. Blank lines between items
+    /// do not end a run; any other line does. Fenced code is left alone.
+    /// </remarks>
+    private static string NormalizeBullets(string markdown)
+    {
+        if (markdown.Length == 0) return markdown;
+
+        var lines = markdown.Split('\n');
+        var inFence = false;
+        var run = new List<int>();
+
+        void FlushRun()
+        {
+            // A lone weak marker is probably prose; a lone "-" or "+" is still a list item.
+            var rewriteAll = run.Count >= 2;
+            foreach (var i in run)
+            {
+                if (rewriteAll || lines[i].TrimStart()[0] is '-' or '+')
+                {
+                    lines[i] = Rewrite(lines[i]);
+                }
+            }
+
+            run.Clear();
+        }
+
+        for (var i = 0; i < lines.Length; i++)
+        {
+            var line = lines[i];
+
+            if (line.TrimStart().StartsWith("```", StringComparison.Ordinal))
+            {
+                FlushRun();
+                inFence = !inFence;
+                continue;
+            }
+
+            if (inFence || string.IsNullOrWhiteSpace(line)) continue;
+
+            if (BulletLineRegex.IsMatch(line))
+            {
+                run.Add(i);
+            }
+            else
+            {
+                FlushRun();
+            }
+        }
+
+        FlushRun();
+
+        return string.Join("\n", lines);
+    }
+
+    private static string Rewrite(string line) => BulletLineRegex.Replace(line, "* ", 1);
 }

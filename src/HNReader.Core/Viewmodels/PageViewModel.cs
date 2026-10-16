@@ -1,4 +1,4 @@
-﻿using CommunityToolkit.Mvvm.ComponentModel;
+using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using HNReader.Core.Enums;
 using HNReader.Core.Helpers;
@@ -53,19 +53,52 @@ public abstract partial class PageViewModel : BaseViewModel
         }
     }
 
-    public bool ShowLoadMoreButton => HasMoreItems && string.IsNullOrWhiteSpace(SearchText);
+    // These used to carry a "no search active" clause, which made every footer
+    // affordance vanish the moment the user typed. That was the wrong half of the
+    // problem to solve: search filters only the stories already loaded, and a
+    // short filtered list never reaches the infinite-scroll threshold, so during
+    // a search the *only* way to reach further matches is an explicit load - and
+    // the clause hid exactly that control, along with the spinner, so loads that
+    // did happen were invisible.
+    public bool ShowLoadMoreButton => HasMoreItems;
 
     public bool LoadMoreFooterVisible => IsLoadingMore || ShowLoadMoreButton || IsAtEnd;
 
     public virtual bool ShowLoadMoreFooter => LoadMoreFooterVisible && !HasError && Stories.Count > 0;
 
-    public bool IsAtEnd => !HasMoreItems && Stories.Count > 0 && string.IsNullOrWhiteSpace(SearchText);
+    public bool IsAtEnd => !HasMoreItems && Stories.Count > 0;
 
     public string LoadMoreButtonText => IsAtEnd ? "No more stories" : "Load more stories";
 
-    public bool IsLoadMoreEnabled => !IsLoadingMore && !IsAtEnd && string.IsNullOrWhiteSpace(SearchText);
+    public bool IsLoadMoreEnabled => !IsLoadingMore && !IsAtEnd;
 
     public bool HasStories => Stories.Count > 0 && !HasError;
+
+    /// <summary>
+    /// Whether this page offers a search box. Off by default.
+    /// </summary>
+    /// <remarks>
+    /// Search is a client-side filter over the stories fetched so far, which on a
+    /// paginated feed means "no matches" can simply mean "not in the first thirty" - a
+    /// misleading result dressed up as a definitive one. Favourites is a complete,
+    /// bounded, local list, so filtering it says exactly what it appears to say, and it
+    /// is the only page that turns this on.
+    /// </remarks>
+    public virtual bool IsSearchEnabled => false;
+
+    public bool IsSearchActive => !string.IsNullOrWhiteSpace(SearchText);
+
+    /// <summary>
+    /// A search matching nothing previously rendered as an unexplained blank
+    /// list: ShowListEmptyState is hardcoded false for every story page.
+    /// </summary>
+    public bool ShowSearchEmptyState => IsSearchActive && FilteredStories.Count == 0 && !IsLoading && !HasError;
+
+    /// <summary>
+    /// The explicit load control, shown only while a search is active. Auto-load
+    /// cannot help there: the filtered list is usually too short to scroll, so
+    /// the scroll threshold is never crossed.
+    /// </summary>
 
     // These are all derived from Stories.Count, which changes via Stories.Add()
     // calls that don't themselves raise PropertyChanged for anything (and the
@@ -82,6 +115,15 @@ public abstract partial class PageViewModel : BaseViewModel
         OnPropertyChanged(nameof(IsAtEnd));
         OnPropertyChanged(nameof(LoadMoreButtonText));
         OnPropertyChanged(nameof(IsLoadMoreEnabled));
+        NotifySearchPropertiesChanged();
+    }
+
+    // FilteredStories.Count changes through Add/Clear, which raise nothing these
+    // derived properties listen to, so both filter paths call this explicitly.
+    private void NotifySearchPropertiesChanged()
+    {
+        OnPropertyChanged(nameof(IsSearchActive));
+        OnPropertyChanged(nameof(ShowSearchEmptyState));
     }
 
     [ObservableProperty]
@@ -118,6 +160,25 @@ public abstract partial class PageViewModel : BaseViewModel
 
     [ObservableProperty]
     private bool _hasError;
+
+    /// <summary>Heading of the full-page error card; pages override the default wording.</summary>
+    [ObservableProperty]
+    private string _errorTitle = "Unable to load stories";
+
+    /// <summary>Set when the first page failed because there is no connection.</summary>
+    [ObservableProperty]
+    private bool _isOfflineError;
+
+    /// <summary>Shown above the list when some, but not all, items could not be loaded.</summary>
+    [ObservableProperty]
+    private string _partialLoadMessage = string.Empty;
+
+    /// <summary>A "load more" request failed; the footer shows a retry instead of silently stalling.</summary>
+    [ObservableProperty]
+    private bool _hasLoadMoreError;
+
+    [ObservableProperty]
+    private string _loadMoreErrorMessage = string.Empty;
 
     partial void OnHasErrorChanged(bool value)
     {
@@ -166,12 +227,10 @@ public abstract partial class PageViewModel : BaseViewModel
     partial void OnIsSelectedStoryFavoriteChanged(bool value)
     {
         OnPropertyChanged(nameof(FavoriteButtonText));
-        OnPropertyChanged(nameof(FavoriteButtonGlyph));
     }
 
     public string FavoriteButtonText => IsSelectedStoryFavorite ? "Remove Favourite" : "Add to Favourites";
 
-    public string FavoriteButtonGlyph => IsSelectedStoryFavorite ? "\uEB52" : "\uEB51";
 
     public virtual bool ShowListEmptyState => false;
 
@@ -211,8 +270,8 @@ public abstract partial class PageViewModel : BaseViewModel
         {
             // Intentionally NOT using ConfigureAwait(false) here: the await needs to
             // resume on the UI thread so the ObservableCollection<Story> mutations below
-            // run on the dispatcher. WinUI 3 will deadlock if you update a bound
-            // collection from a thread-pool thread.
+            // run on the dispatcher. Mutating a bound collection from a thread-pool
+            // thread is not safe.
             var (stories, nextOffset) = await _client.GetStoriesPageAsync(_itemType, limit: PageSize);
 
             foreach (var story in stories)
@@ -232,8 +291,11 @@ public abstract partial class PageViewModel : BaseViewModel
         catch (Exception ex)
         {
             _logger?.LogError("PageViewModel", "Error loading stories", ex);
+            var friendly = ErrorMessageHelper.Describe(ex);
             HasError = true;
-            ErrorMessage = "There was an error loading stories. Please check your connection and try again.";
+            IsOfflineError = friendly.IsOffline;
+            ErrorTitle = friendly.IsOffline ? "You're offline" : "Unable to load stories";
+            ErrorMessage = friendly.Message;
         }
         finally
         {
@@ -251,6 +313,8 @@ public abstract partial class PageViewModel : BaseViewModel
         SearchText = string.Empty;
 
         HasError = false;
+        IsOfflineError = false;
+        HasLoadMoreError = false;
         ErrorMessage = string.Empty;
 
         _nextOffset = 0;
@@ -267,6 +331,7 @@ public abstract partial class PageViewModel : BaseViewModel
         if (IsLoadingMore || IsLoading || !HasMoreItems) return;
 
         IsLoadingMore = true;
+        HasLoadMoreError = false;
 
         try
         {
@@ -293,6 +358,8 @@ public abstract partial class PageViewModel : BaseViewModel
         catch (Exception ex)
         {
             _logger?.LogError("PageViewModel", "Error loading more stories", ex);
+            LoadMoreErrorMessage = ErrorMessageHelper.Describe(ex).Message;
+            HasLoadMoreError = true;
         }
         finally
         {
@@ -300,7 +367,56 @@ public abstract partial class PageViewModel : BaseViewModel
         }
     }
 
+    /// <summary>
+    /// Debounce for the search box.
+    /// </summary>
+    /// <remarks>
+    /// Filtering rebuilds FilteredStories from scratch, and that collection is
+    /// bound to the list, so an un-debounced filter tore down and rebuilt the
+    /// whole virtualized list on every keystroke.
+    /// </remarks>
+    private static readonly TimeSpan SearchDebounce = TimeSpan.FromMilliseconds(250);
+
+    private CancellationTokenSource? _searchDebounceCts;
+
     partial void OnSearchTextChanged(string value)
+    {
+        _searchDebounceCts?.Cancel();
+        _searchDebounceCts?.Dispose();
+        _searchDebounceCts = null;
+
+        // Clearing applies at once: waiting a quarter second to restore the full
+        // list makes the clear button feel broken.
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            ApplyFilterAndNotify();
+            return;
+        }
+
+        _searchDebounceCts = new CancellationTokenSource();
+        _ = ApplySearchFilterDebouncedAsync(_searchDebounceCts.Token);
+    }
+
+    // The property is set on the UI thread by the search box binding, so this
+    // continuation resumes there too - which matters, because ApplySearchFilter
+    // mutates a bound ObservableCollection.
+    private async Task ApplySearchFilterDebouncedAsync(CancellationToken token)
+    {
+        try
+        {
+            await Task.Delay(SearchDebounce, token);
+        }
+        catch (OperationCanceledException)
+        {
+            return;
+        }
+
+        if (token.IsCancellationRequested) return;
+
+        ApplyFilterAndNotify();
+    }
+
+    private void ApplyFilterAndNotify()
     {
         ApplySearchFilter();
         NotifyPaginationPropertiesChanged();
@@ -343,6 +459,8 @@ public abstract partial class PageViewModel : BaseViewModel
 
             FilteredStories.Add(story);
         }
+
+        NotifySearchPropertiesChanged();
     }
 
     /// <summary>
@@ -389,6 +507,8 @@ public abstract partial class PageViewModel : BaseViewModel
         {
             _suppressSelectedStoryReset = false;
         }
+
+        NotifySearchPropertiesChanged();
     }
 
     [RelayCommand]
@@ -499,7 +619,9 @@ public abstract partial class PageViewModel : BaseViewModel
                 await LoadCommentsFromWebAsync(_commentsLoadCts.Token);
             }
         }
-        catch (OperationCanceledException)
+        // Only a cancellation WE requested is silent. An HttpClient timeout also arrives as
+        // an OperationCanceledException and must fall through to the error state.
+        catch (OperationCanceledException) when (_commentsLoadCts?.IsCancellationRequested == true)
         {
             AreCommentsVisible = false;
             HasConfirmedNoComments = false;
@@ -509,7 +631,7 @@ public abstract partial class PageViewModel : BaseViewModel
             _logger?.LogError("PageViewModel", "Error loading comments", ex);
             HasCommentsError = true;
             HasConfirmedNoComments = false;
-            CommentsErrorMessage = "There was an error loading comments. Please try again.";
+            CommentsErrorMessage = ErrorMessageHelper.Describe(ex).Message;
             AreCommentsVisible = false;
             _webCommentRoots = null;
             WebCommentNodes = [];

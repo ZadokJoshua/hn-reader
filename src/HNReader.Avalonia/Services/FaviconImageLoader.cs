@@ -15,12 +15,9 @@ namespace HNReader.Avalonia.Services;
 /// The application-wide <see cref="IAsyncImageLoader"/>.
 ///
 /// <para>
-/// <see cref="ImageLoader.AsyncImageLoader"/> is a single global hook, and this app uses
-/// the attached <c>ImageLoader.Source</c> property for two unrelated things: story
-/// favicons and the digest page's article preview images. A loader that assumed every
-/// request was a favicon would silently break the previews. So favicon requests are
-/// marked with the <see cref="Scheme"/> sentinel and everything else is handed to a stock
-/// web loader untouched.
+/// <see cref="ImageLoader.AsyncImageLoader"/> is a single global hook. Favicon requests
+/// are marked with the <see cref="Scheme"/> sentinel; other image URLs are handed to a
+/// stock web loader untouched.
 /// </para>
 /// </summary>
 public class FaviconImageLoader : IAsyncImageLoader
@@ -46,10 +43,7 @@ public class FaviconImageLoader : IAsyncImageLoader
     {
         _faviconService = faviconService ?? throw new ArgumentNullException(nameof(faviconService));
         _logger = logger;
-        // DiskCachedWebImageLoader specifically, because that is what the library uses
-        // when nothing is assigned - which was the case before this loader existed. Using
-        // the RAM-only loader here would quietly cost the digest previews their on-disk
-        // cache and re-download them every launch.
+        // Keep the stock disk-cached behavior for non-favicon image URLs.
         _inner = new DiskCachedWebImageLoader();
     }
 

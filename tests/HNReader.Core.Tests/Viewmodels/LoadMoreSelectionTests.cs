@@ -52,8 +52,12 @@ public class LoadMoreSelectionTests
         var viewModel = CreateViewModel();
         var (first, _) = SeedTwoStories(viewModel);
 
-        // Setting SearchText rebuilds the filter, leaving only "First story".
+        // Setting SearchText no longer rebuilds the filter synchronously - the
+        // setter debounces, so the rebuild lands ~250ms later. Drive it directly
+        // instead of sleeping, which keeps this deterministic; what is under test
+        // here is the append path, and the search term is only setup for it.
         viewModel.SearchText = "First";
+        viewModel.RebuildFilter();
         Assert.Equal([first], viewModel.FilteredStories);
 
         var matching = new Story { Id = 3, Title = "First story, continued" };
@@ -170,5 +174,6 @@ public class LoadMoreSelectionTests
         public Task<int> ExportToFileAsync(string filePath) => Task.FromResult(0);
 
         public Task<int> ImportFromFileAsync(string filePath) => Task.FromResult(0);
+        public Task<HNReader.Core.Services.FavoritesImportResult> ImportAsync(string filePath) => Task.FromResult(default(HNReader.Core.Services.FavoritesImportResult));
     }
 }

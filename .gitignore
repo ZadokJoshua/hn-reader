@@ -365,3 +365,6 @@ FodyWeavers.xsd
 
 # HNReader.Server runtime data (Hangfire SQLite store, digest LiteDB file)
 HNReader.Server/data/
+
+# Favicon disk cache written by AsyncImageLoader at runtime
+**/Cache/Images/

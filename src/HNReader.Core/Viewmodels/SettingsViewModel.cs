@@ -1,5 +1,4 @@
 using CommunityToolkit.Mvvm.ComponentModel;
-using HNReader.Core.Constants;
 using HNReader.Core.Enums;
 using HNReader.Core.Interfaces;
 
@@ -13,18 +12,9 @@ public partial class SettingsViewModel : BaseViewModel
     private int selectedThemeIndex;
 
     [ObservableProperty]
-    private bool isDigestEnabled;
+    private bool confirmCommentLinks;
 
     public string[] ThemeOptions { get; } = ["Auto", "Light", "Dark"];
-
-    public bool CanReportBug => !string.IsNullOrWhiteSpace(AppFileNames.BUG_REPORT_URL);
-
-    /// <summary>
-    /// Whether a digest server address was compiled in at all. Gates the toggle
-    /// the same way <see cref="CanReportBug"/> gates its button — offering a
-    /// switch that cannot possibly work is worse than showing it disabled.
-    /// </summary>
-    public bool IsDigestConfigured => !string.IsNullOrWhiteSpace(AppFileNames.DIGEST_SERVER_BASE_URL);
 
     public SettingsViewModel(ISettingsService settingsService)
     {
@@ -35,16 +25,19 @@ public partial class SettingsViewModel : BaseViewModel
     private void LoadSettings()
     {
         SelectedThemeIndex = (int)_settingsService.Theme;
-        IsDigestEnabled = _settingsService.IsDigestEnabled;
     }
 
     partial void OnSelectedThemeIndexChanged(int value)
     {
+        // A ComboBox reports -1 while its items are being rebuilt or cleared; that is
+        // not a choice, and casting it would persist an undefined theme.
+        if (!Enum.IsDefined(typeof(AppTheme), value)) return;
+
         _settingsService.Theme = (AppTheme)value;
     }
 
-    partial void OnIsDigestEnabledChanged(bool value)
+    partial void OnConfirmCommentLinksChanged(bool value)
     {
-        _settingsService.IsDigestEnabled = value;
+        _settingsService.ConfirmCommentLinks = value;
     }
 }

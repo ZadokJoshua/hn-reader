@@ -1,4 +1,4 @@
-﻿namespace HNReader.Core.Constants;
+namespace HNReader.Core.Constants;
 
 public static class AppFileNames
 {
@@ -8,45 +8,12 @@ public static class AppFileNames
     public const string LOG_FILE_PREFIX = "hnreader-";
     public const string LOG_FILE_EXTENSION = ".log";
 
-    // 7 days is generous for a bug-report window and short enough to keep
-    // %TEMP% tidy. Not user-configurable in v1.
+    // 7 days is generous for diagnosing a problem after the fact and short enough to
+    // keep the app-data folder tidy. Not user-configurable in v1.
     public static readonly TimeSpan LOG_TTL = TimeSpan.FromDays(7);
 
     public const long LOG_MAX_FILE_BYTES = 2L * 1024L * 1024L; // 2 MB
     public const int LOG_MAX_FILES = 10;
-
-    // GitHub "new issue" URL for the "Report a bug" link. Empty disables the button.
-    public const string BUG_REPORT_URL = "https://github.com/ZadokJoshua/hn-reader/issues/new";
-
-    // ── Daily digest ─────────────────────────────────────────────────────
-    //
-    // The digest is served by our own HNReader.Server, not by Hacker News. It is
-    // the only part of the app that talks to a server we run, and it is an
-    // opt-in feature (see ISettingsService.IsDigestEnabled) precisely because
-    // that server may not be running.
-
-    // Trailing slash is load-bearing: HttpClient.BaseAddress drops everything
-    // after the last '/' when resolving a relative request URI.
-    // Empty disables the feature, the same way an empty BUG_REPORT_URL disables
-    // its button.
-    public const string DIGEST_SERVER_BASE_URL = "http://localhost:5282/";
-
-    public const string DIGEST_ENDPOINT = "digest";
-    public const string DIGEST_CATEGORIES_ENDPOINT = "digest/categories";
-    public const string DIGEST_GENERATE_ENDPOINT = "digest/generate";
-
-    // How often to re-check for a digest while the server is generating one, and
-    // how long to keep waiting before giving up and letting the user retry. A run
-    // was measured at 4-10 minutes, so the ceiling is generous.
-    public static readonly TimeSpan DIGEST_GENERATION_POLL_INTERVAL = TimeSpan.FromSeconds(20);
-    public static readonly TimeSpan DIGEST_GENERATION_TIMEOUT = TimeSpan.FromMinutes(15);
-
-    public const int DIGEST_HTTP_TIMEOUT_SECONDS = 20;
-
-    // How long a loaded digest stays good enough to reuse. The digest is
-    // regenerated nightly and the server already output-caches it for an hour,
-    // so re-fetching on every navigation would be pure waste.
-    public static readonly TimeSpan DIGEST_STALE_AFTER = TimeSpan.FromMinutes(30);
 
     // ── Favicons ─────────────────────────────────────────────────────────
     //

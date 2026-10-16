@@ -82,20 +82,6 @@ internal sealed class LogFileWriter : IDisposable
         }
     }
 
-    /// <summary>
-    /// Close the current file (if any) and open a fresh one at <paramref name="newPath"/>.
-    /// Used to release the OS handle on the active log so callers can read/copy the
-    /// now-closed file (e.g. log-export zipping).
-    /// </summary>
-    public void Rotate(string newPath)
-    {
-        lock (_gate)
-        {
-            CloseCore();
-            OpenNew(newPath);
-        }
-    }
-
     /// <summary>Delete log files older than <paramref name="ttl"/>, keeping at most <paramref name="maxFiles"/> total.</summary>
     public void PurgeExpired(TimeSpan ttl, int maxFiles)
     {

@@ -23,5 +23,12 @@ public interface IFavoritesService
     /// <returns>Number of stories imported.</returns>
     Task<int> ImportFromFileAsync(string filePath);
 
+    /// <summary>
+    /// Like <see cref="ImportFromFileAsync"/> but reports how many entries were new, replaced
+    /// or skipped. Throws <c>FavoritesImportException</c> when the file is not a usable export;
+    /// nothing is written in that case.
+    /// </summary>
+    Task<Services.FavoritesImportResult> ImportAsync(string filePath);
+
     event EventHandler? FavoritesChanged;
 }

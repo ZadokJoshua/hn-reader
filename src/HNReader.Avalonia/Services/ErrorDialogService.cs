@@ -5,13 +5,13 @@ using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Input.Platform;
 using Avalonia.Layout;
-using FluentAvalonia.UI.Controls;
+using HNReader.Avalonia.Controls;
 
 namespace HNReader.Avalonia.Services;
 
 /// <summary>
 /// Centralized error dialog, mirroring HNReader.WinUI.Services.ErrorDialogService but
-/// built on FluentAvalonia's ContentDialog.
+/// built on the app-owned AppDialogWindow.
 /// </summary>
 public static class ErrorDialogService
 {
@@ -36,19 +36,15 @@ public static class ErrorDialogService
                 }
             };
 
-            var dialog = new ContentDialog
-            {
-                Title = title,
-                Content = scroll,
-                PrimaryButtonText = "Copy Details",
-                SecondaryButtonText = logFilePath is null ? null : "Open log folder",
-                CloseButtonText = "OK",
-                DefaultButton = ContentDialogButton.Close,
-            };
+            var result = await AppDialogWindow.ShowAsync(
+                window,
+                title,
+                scroll,
+                primaryText: "Copy Details",
+                secondaryText: logFilePath is null ? null : "Open log folder",
+                closeText: "OK");
 
-            var result = await dialog.ShowAsync(window);
-
-            if (result == ContentDialogResult.Primary)
+            if (result == DialogResult.Primary)
             {
                 var payload = logFilePath is null
                     ? $"{title}\n\n{message}"
@@ -60,7 +56,7 @@ public static class ErrorDialogService
                     await clipboard.SetTextAsync(payload);
                 }
             }
-            else if (result == ContentDialogResult.Secondary && logFilePath is not null)
+            else if (result == DialogResult.Secondary && logFilePath is not null)
             {
                 TryOpenInExplorer(System.IO.Path.GetDirectoryName(logFilePath));
             }

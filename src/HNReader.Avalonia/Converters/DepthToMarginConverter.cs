@@ -14,13 +14,18 @@ public class DepthToMarginConverter : IValueConverter
 {
     public static readonly DepthToMarginConverter Instance = new();
 
+    // Shared: this runs once per comment row, and a Thickness is a value type
+    // that never changes, so there is nothing to allocate per call.
+    private static readonly Thickness RootMargin = new(0, 0, 0, 10);
+    private static readonly Thickness NestedMargin = new(0);
+
     public object Convert(object? value, Type targetType, object? parameter, CultureInfo culture)
     {
         if (value is int depth)
         {
-            return depth == 0 ? new Thickness(0, 0, 0, 10) : new Thickness(0);
+            return depth == 0 ? RootMargin : NestedMargin;
         }
-        return new Thickness(0);
+        return NestedMargin;
     }
 
     public object ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture)

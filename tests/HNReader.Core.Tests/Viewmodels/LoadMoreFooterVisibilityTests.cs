@@ -92,5 +92,6 @@ public class LoadMoreFooterVisibilityTests
         public Task<int> ExportToFileAsync(string filePath) => Task.FromResult(0);
 
         public Task<int> ImportFromFileAsync(string filePath) => Task.FromResult(0);
+        public Task<HNReader.Core.Services.FavoritesImportResult> ImportAsync(string filePath) => Task.FromResult(default(HNReader.Core.Services.FavoritesImportResult));
     }
 }

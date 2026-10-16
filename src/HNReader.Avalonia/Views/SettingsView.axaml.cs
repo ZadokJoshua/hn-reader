@@ -1,15 +1,11 @@
 using System;
 using System.Collections.Generic;
-using System.IO;
-using System.IO.Compression;
 using System.Linq;
-using System.Threading.Tasks;
 using Avalonia.Controls;
 using Avalonia.Interactivity;
 using Avalonia.Platform.Storage;
-using FluentAvalonia.UI.Controls;
-using HNReader.Avalonia.Services;
-using HNReader.Core.Constants;
+using HNReader.Avalonia.Controls;
+using HNReader.Core.Helpers;
 using HNReader.Core.Interfaces;
 using HNReader.Core.Services.Logging;
 using HNReader.Core.Viewmodels;
@@ -36,10 +32,22 @@ public partial class SettingsView : UserControl
 
     private async void ExportFavoritesButton_Click(object? sender, RoutedEventArgs e)
     {
+        const string failureTitle = "Couldn't export your favourites";
+
         try
         {
             var storage = GetStorageProvider();
             if (storage is null) return;
+
+            // Checked before the save dialog so the user is not asked to pick a
+            // location for a file that would only contain an empty list.
+            var existing = await _favoritesService.Value.GetAllIdsAsync();
+            if (existing.Count == 0)
+            {
+                ShowStatus("Nothing to export yet", "Save a story as a favourite first, then come back to back it up.",
+                    StatusSeverity.Informational);
+                return;
+            }
 
             var file = await storage.SaveFilePickerAsync(new FilePickerSaveOptions
             {
@@ -53,16 +61,20 @@ public partial class SettingsView : UserControl
             if (file is null) return;
 
             var count = await _favoritesService.Value.ExportToFileAsync(file.Path.LocalPath);
-            ShowStatus($"Exported {count} favourite{(count == 1 ? "" : "s")} to {file.Name}.", InfoBarSeverity.Success);
+            ShowStatus("Favourites exported",
+                $"Saved {count} favourite{(count == 1 ? "" : "s")} to {file.Name}.",
+                StatusSeverity.Success);
         }
         catch (Exception ex)
         {
-            ShowStatus($"Export failed: {ex.Message}", InfoBarSeverity.Error);
+            ReportFailure("exporting favourites", failureTitle, ex);
         }
     }
 
     private async void ImportFavoritesButton_Click(object? sender, RoutedEventArgs e)
     {
+        const string failureTitle = "Couldn't import favourites";
+
         try
         {
             var storage = GetStorageProvider();
@@ -79,89 +91,48 @@ public partial class SettingsView : UserControl
             var file = files.FirstOrDefault();
             if (file is null) return;
 
-            var count = await _favoritesService.Value.ImportFromFileAsync(file.Path.LocalPath);
-            ShowStatus($"Imported {count} favourite{(count == 1 ? "" : "s")} from {file.Name}.", InfoBarSeverity.Success);
-        }
-        catch (Exception ex)
-        {
-            ShowStatus($"Import failed: {ex.Message}", InfoBarSeverity.Error);
-        }
-    }
+            var result = await _favoritesService.Value.ImportAsync(file.Path.LocalPath);
 
-    private void ShowStatus(string message, InfoBarSeverity severity)
-    {
-        StatusInfoBar.Severity = severity;
-        StatusInfoBar.Title = severity == InfoBarSeverity.Success ? "Success" : "Error";
-        StatusInfoBar.Message = message;
-        StatusInfoBar.IsOpen = true;
-    }
-
-    private async void ExportLogsButton_Click(object? sender, RoutedEventArgs e)
-    {
-        var logger = (global::Avalonia.Application.Current as App)?.Services.GetService<ILogger>();
-        if (logger is null)
-        {
-            ShowDiagnosticsStatus("Logger is not available.", InfoBarSeverity.Error);
-            return;
-        }
-
-        try
-        {
-            var storage = GetStorageProvider();
-            if (storage is null) return;
-
-            var file = await storage.SaveFilePickerAsync(new FilePickerSaveOptions
+            var message = $"Imported {result.Total} favourite{(result.Total == 1 ? "" : "s")} from {file.Name}.";
+            if (result.Updated > 0 && result.Added == 0)
             {
-                SuggestedFileName = $"hnreader-logs-{DateTime.Now:yyyyMMdd-HHmmss}",
-                DefaultExtension = "zip",
-                FileTypeChoices = new List<FilePickerFileType>
-                {
-                    new("Zip archive") { Patterns = new[] { "*.zip" } }
-                }
-            });
-            if (file is null) return;
-
-            var tempZip = Path.Combine(Path.GetTempPath(), $"hnreader-logs-{Guid.NewGuid():N}.zip");
-
-            // Rotate BEFORE zipping: rotation is what actually closes today's log
-            // file handle (via LogFileWriter.Rotate -> CloseCore/OpenNew). Zipping
-            // first would try to read a file still open for writing and fail with
-            // an IOException.
-            await logger.FlushAsync();
-            await logger.RotateAsync();
-            await Task.Run(() => ZipFile.CreateFromDirectory(logger.LogDirectory, tempZip));
-
-            using (var src = File.OpenRead(tempZip))
-            await using (var dst = await file.OpenWriteAsync())
-            {
-                await src.CopyToAsync(dst);
+                message = $"All {result.Total} favourite{(result.Total == 1 ? " was" : "s were")} already saved. Nothing new to add.";
             }
-            File.Delete(tempZip);
+            else if (result.Updated > 0)
+            {
+                message = $"Added {result.Added} new favourite{(result.Added == 1 ? "" : "s")} ({result.Updated} already saved).";
+            }
 
-            ShowDiagnosticsStatus($"Exported logs to {file.Name}.", InfoBarSeverity.Success);
+            if (result.Skipped > 0)
+            {
+                message += $" {result.Skipped} entr{(result.Skipped == 1 ? "y" : "ies")} in the file couldn't be used.";
+            }
+
+            ShowStatus("Import complete", message,
+                result.Added == 0 ? StatusSeverity.Informational : StatusSeverity.Success);
         }
         catch (Exception ex)
         {
-            ShowDiagnosticsStatus($"Export failed: {ex.Message}", InfoBarSeverity.Error);
+            ReportFailure("importing favourites", failureTitle, ex);
         }
     }
 
-    private void ReportBugButton_Click(object? sender, RoutedEventArgs e)
+    /// <summary>
+    /// The user sees one plain sentence; the exception, with its technical detail, goes to the log.
+    /// </summary>
+    private void ReportFailure(string operation, string title, Exception ex)
     {
-        var url = AppFileNames.BUG_REPORT_URL;
-        if (string.IsNullOrWhiteSpace(url)) return;
+        (global::Avalonia.Application.Current as App)?.Services.GetService<ILogger>()
+            ?.LogError("SettingsView", $"Error {operation}", ex);
 
-        if (!UrlOpener.TryOpen(url))
-        {
-            ShowDiagnosticsStatus("Could not open the bug-report form.", InfoBarSeverity.Error);
-        }
+        ShowStatus(title, ErrorMessageHelper.Describe(ex).Message, StatusSeverity.Error);
     }
 
-    private void ShowDiagnosticsStatus(string message, InfoBarSeverity severity)
+    private void ShowStatus(string title, string message, StatusSeverity severity)
     {
-        DiagnosticsInfoBar.Severity = severity;
-        DiagnosticsInfoBar.Title = severity == InfoBarSeverity.Success ? "Success" : "Error";
-        DiagnosticsInfoBar.Message = message;
-        DiagnosticsInfoBar.IsOpen = true;
+        StatusBannerControl.Severity = severity;
+        StatusBannerControl.Title = title;
+        StatusBannerControl.Message = message;
+        StatusBannerControl.IsOpen = true;
     }
 }

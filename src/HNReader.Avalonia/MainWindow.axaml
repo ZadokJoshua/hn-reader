@@ -1,75 +1,67 @@
-﻿<Window xmlns="https://github.com/avaloniaui"
+<Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        xmlns:ui="using:FluentAvalonia.UI.Controls"
+        xmlns:c="using:HNReader.Avalonia.Controls"
         x:Class="HNReader.Avalonia.MainWindow"
         Icon="avares://HNReader.Avalonia/Assets/HnReaderIcon.ico"
-        Title="Reader"
-        Width="1400" Height="900"
+        Title="HN Reader"
+        Width="1280" Height="820"
+        MinWidth="880" MinHeight="560"
         WindowStartupLocation="CenterScreen"
-        TransparencyLevelHint="Mica,AcrylicBlur,None"
-        Background="Transparent"
+        Background="{DynamicResource HnPageBackgroundBrush}"
         UseLayoutRounding="True"
-        RenderOptions.TextRenderingMode="SubpixelAntialias">
+        RenderOptions.TextRenderingMode="SubpixelAntialias"
+        ExtendClientAreaToDecorationsHint="True"
+        ExtendClientAreaChromeHints="PreferSystemChrome"
+        ExtendClientAreaTitleBarHeightHint="-1">
 
-    <ui:NavigationView x:Name="NavView"
-                        PaneDisplayMode="Left"
-                        IsPaneToggleButtonVisible="True"
-                        IsBackButtonVisible="False"
-                        IsSettingsVisible="False"
-                        OpenPaneLength="200">
+    <!-- No title-bar band: the client area extends into it and Windows draws the
+         caption buttons over the top right. Title is kept because it feeds the
+         taskbar and Alt-Tab, not because anything renders it.
 
-        <ui:NavigationView.MenuItems>
-            <ui:NavigationViewItemHeader Content="Browse" />
-            <ui:NavigationViewItem x:Name="TopPageNavItem" Content="Top Stories">
-                <ui:NavigationViewItem.IconSource>
-                    <ui:FontIconSource FontFamily="{StaticResource PhosphorFont}" Glyph="{StaticResource IconTop}" />
-                </ui:NavigationViewItem.IconSource>
-            </ui:NavigationViewItem>
-            <ui:NavigationViewItem x:Name="NewPageNavItem" Content="New Stories">
-                <ui:NavigationViewItem.IconSource>
-                    <ui:FontIconSource FontFamily="{StaticResource PhosphorFont}" Glyph="{StaticResource IconClock}" />
-                </ui:NavigationViewItem.IconSource>
-            </ui:NavigationViewItem>
-            <ui:NavigationViewItem x:Name="BestPageNavItem" Content="Best Stories">
-                <ui:NavigationViewItem.IconSource>
-                    <ui:FontIconSource FontFamily="{StaticResource PhosphorFont}" Glyph="{StaticResource IconTrophy}" />
-                </ui:NavigationViewItem.IconSource>
-            </ui:NavigationViewItem>
-            <ui:NavigationViewItem x:Name="ShowPageNavItem" Content="Show HN">
-                <ui:NavigationViewItem.IconSource>
-                    <ui:FontIconSource FontFamily="{StaticResource PhosphorFont}" Glyph="{StaticResource IconRocket}" />
-                </ui:NavigationViewItem.IconSource>
-            </ui:NavigationViewItem>
-            <ui:NavigationViewItem x:Name="AskPageNavItem" Content="Ask HN">
-                <ui:NavigationViewItem.IconSource>
-                    <ui:FontIconSource FontFamily="{StaticResource PhosphorFont}" Glyph="{StaticResource IconAsk}" />
-                </ui:NavigationViewItem.IconSource>
-            </ui:NavigationViewItem>
+         Width/Height are DIPs and only a request - App clamps them to the
+         screen's working area before the window is shown, because a fixed size
+         in DIPs overflows any display running above 100% scaling.
 
-            <!-- IsVisible starts false: the digest is opt-in, and the item
-                 must not appear for a beat before the setting is applied. -->
-            <ui:NavigationViewItem x:Name="DigestPageNavItem" Content="Daily Digest" IsVisible="False">
-                <ui:NavigationViewItem.IconSource>
-                    <ui:FontIconSource FontFamily="{StaticResource PhosphorFont}" Glyph="{StaticResource IconNews}" />
-                </ui:NavigationViewItem.IconSource>
-            </ui:NavigationViewItem>
+         Deliberately opaque, with no TransparencyLevelHint: text composited over
+         a translucent backdrop cannot use subpixel antialiasing and loses
+         contrast against whatever sits behind the window. -->
+    <!-- OffScreenMargin is non-zero only while maximised, and is exactly the
+         slice of the window that falls outside the screen: with the client area
+         extended into the decorations, a maximised window overhangs every edge by
+         the invisible resize border, which pushed the nav items hard against the
+         screen edge. Binding it here needs no WindowState handler and no
+         hard-coded border width. -->
+    <Grid Margin="{Binding OffScreenMargin, RelativeSource={RelativeSource AncestorType=Window}}"
+          ColumnDefinitions="Auto,*" RowDefinitions="Auto,*">
 
-            <ui:NavigationViewItemHeader Content="Personal" />
-            <ui:NavigationViewItem x:Name="FavouritesPageNavItem" Content="Favorites">
-                <ui:NavigationViewItem.IconSource>
-                    <ui:FontIconSource FontFamily="{StaticResource PhosphorFont}" Glyph="{StaticResource IconHeart}" />
-                </ui:NavigationViewItem.IconSource>
-            </ui:NavigationViewItem>
-        </ui:NavigationView.MenuItems>
+        <!-- Spans both rows so the pane still runs the full height of the window;
+             only the content column sits below the caption strip. -->
+        <c:NavigationPane x:Name="NavPane" Grid.Column="0" Grid.Row="0" Grid.RowSpan="2" />
 
-        <ui:NavigationView.FooterMenuItems>
-            <ui:NavigationViewItem x:Name="SettingsPageNavItem" Content="Settings">
-                <ui:NavigationViewItem.IconSource>
-                    <ui:FontIconSource FontFamily="{StaticResource PhosphorFont}" Glyph="{StaticResource IconGear}" />
-                </ui:NavigationViewItem.IconSource>
-            </ui:NavigationViewItem>
-        </ui:NavigationView.FooterMenuItems>
+        <!-- Stands in for the title bar that is no longer there: without it the
+             window could only be moved by its edges. -->
+        <Border x:Name="TitleStrip"
+                Grid.Column="1"
+                Grid.Row="0"
+                Height="32"
+                Background="Transparent"
+                PointerPressed="OnTitleStripPointerPressed"
+                DoubleTapped="OnTitleStripDoubleTapped" />
 
-        <ContentControl x:Name="ContentHost" />
-    </ui:NavigationView>
+        <!-- ClipToBounds matters during the transition: the outgoing and incoming
+             pages would otherwise paint outside their slot. -->
+        <TransitioningContentControl x:Name="ContentHost"
+                                     Grid.Column="1"
+                                     Grid.Row="1"
+                                     ClipToBounds="True"
+                                     Background="{DynamicResource HnPageBackgroundBrush}">
+            <TransitioningContentControl.PageTransition>
+                <!-- A cross-fade, not a slide: PageSlide translates by the full
+                     control extent, which on a wide window is a long sweep of a
+                     heavy story list. Keep the duration at or below
+                     NavigationService.TeardownDelay. -->
+                <CrossFade Duration="0:0:0.18" />
+            </TransitioningContentControl.PageTransition>
+        </TransitioningContentControl>
+    </Grid>
 </Window>

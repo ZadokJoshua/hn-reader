@@ -1,7 +1,7 @@
 # Copilot Instructions
 
 ## Architecture & Framework
-- **Framework**: WinUI 3 (.NET 8) with MVVM using CommunityToolkit.MVVM
+- **Framework**: Avalonia (.NET 8) with MVVM using CommunityToolkit.MVVM
 - **Pattern**: Observable properties via `[ObservableProperty]` with partial methods for change notifications
 - **Async First**: All I/O operations use async/await; use `Task.Run()` for expensive CPU work on background threads
 
@@ -29,14 +29,14 @@ dotnet restore
 dotnet build
 ```
 
-### Run WinUI Application (x64)
+### Run the app (x64)
 ```powershell
-dotnet run --project .\src\HNReader.WinUI\HNReader.WinUI.csproj -r win-x64
+dotnet run --project .\src\HNReader.Avalonia\HNReader.Avalonia.csproj -r win-x64
 ```
 
-### Run WinUI Application (Debug)
+### Run the app (Debug)
 ```powershell
-dotnet run --project .\src\HNReader.WinUI\HNReader.WinUI.csproj 
+dotnet run --project .\src\HNReader.Avalonia\HNReader.Avalonia.csproj 
 ```
 
 ### Run Tests

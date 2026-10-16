@@ -1,6 +1,6 @@
-﻿<Styles xmlns="https://github.com/avaloniaui"
+<Styles xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        xmlns:ui="using:FluentAvalonia.UI.Controls">
+        xmlns:c="using:HNReader.Avalonia.Controls">
 
     <Style Selector="TextBlock.TitleTextBlockStyle">
         <Setter Property="FontSize" Value="28" />
@@ -19,36 +19,42 @@
 
     <Style Selector="TextBlock.CaptionTextBlockStyle">
         <Setter Property="FontSize" Value="12" />
-        <Setter Property="Foreground" Value="{DynamicResource TextFillColorSecondaryBrush}" />
+        <Setter Property="Foreground" Value="{DynamicResource HnTextSecondaryBrush}" />
     </Style>
 
     <!-- Settings page cards -->
     <Style Selector="Border.SettingsCard">
-        <Setter Property="Background" Value="{DynamicResource CardBackgroundFillColorDefaultBrush}" />
+        <Setter Property="Background" Value="{DynamicResource HnCardBackgroundBrush}" />
         <Setter Property="CornerRadius" Value="8" />
         <Setter Property="Padding" Value="24" />
     </Style>
 
     <Style Selector="Border.SettingsIconBadge">
-        <Setter Property="Background" Value="{DynamicResource AccentFillColorDefaultBrush}" />
+        <Setter Property="Background" Value="{DynamicResource HnAccentBrush}" />
         <Setter Property="CornerRadius" Value="6" />
         <Setter Property="Padding" Value="8" />
     </Style>
 
     <!-- StoriesPageControl / comment tree styles -->
+    <!-- ClipToBounds on both card styles is the backstop for content that
+         measures wider than its card - chiefly Markdown.Avalonia, which will not
+         break a long bare URL. Without it such content is painted, not clipped,
+         and runs past the right edge of the pane. -->
     <Style Selector="Border.CardBorderStyle">
-        <Setter Property="Background" Value="{DynamicResource CardBackgroundFillColorDefaultBrush}" />
+        <Setter Property="Background" Value="{DynamicResource HnCardBackgroundBrush}" />
         <Setter Property="CornerRadius" Value="12" />
         <Setter Property="Padding" Value="20" />
+        <Setter Property="ClipToBounds" Value="True" />
     </Style>
 
     <Style Selector="Border.CommentCardBorderStyle">
         <Setter Property="Padding" Value="12" />
         <Setter Property="Margin" Value="0,6,0,2" />
-        <Setter Property="Background" Value="{DynamicResource CardBackgroundFillColorDefaultBrush}" />
+        <Setter Property="Background" Value="{DynamicResource HnCardBackgroundBrush}" />
         <Setter Property="CornerRadius" Value="8" />
-        <Setter Property="BorderBrush" Value="{DynamicResource CardStrokeColorDefaultBrush}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource HnCardStrokeBrush}" />
         <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="ClipToBounds" Value="True" />
     </Style>
 
     <Style Selector="Button.CollapseButtonStyle">
@@ -63,11 +69,28 @@
         <Setter Property="MinWidth" Value="0" />
         <Setter Property="CornerRadius" Value="6" />
     </Style>
+
+        <!-- Square, label-less variant for the story detail actions. Keeping it
+            separate avoids affecting buttons that carry text. -->
+    <Style Selector="Button.IconActionButtonStyle">
+        <Setter Property="Padding" Value="0" />
+        <Setter Property="MinWidth" Value="0" />
+        <Setter Property="Width" Value="34" />
+        <Setter Property="Height" Value="34" />
+        <Setter Property="CornerRadius" Value="6" />
+    </Style>
+
+    <!-- The favourited story's star picks up the brand colour, matching the star
+         already shown on favourited rows in the list. With the text label gone
+         this and the tooltip are the only things distinguishing the two states. -->
+    <Style Selector="Button.IconActionButtonStyle.favourited c|IconGlyph">
+        <Setter Property="Foreground" Value="{DynamicResource HnAccentBrush}" />
+    </Style>
     <!-- Hover lift for the icon-bearing buttons. The neutral scale(1) has to be declared
          or the transition has nothing to animate from and the first hover snaps. 1.06,
          not the more common 1.1: these sit in a dense list and a larger scale visibly
          nudges the rows around them. -->
-    <Style Selector="Button.ActionButtonStyle, Button.CollapseButtonStyle">
+    <Style Selector="Button.ActionButtonStyle, Button.CollapseButtonStyle, Button.IconActionButtonStyle">
         <Setter Property="RenderTransform" Value="scale(1)" />
         <Setter Property="Transitions">
             <Transitions>
@@ -77,8 +100,31 @@
         </Setter>
     </Style>
 
-    <Style Selector="Button.ActionButtonStyle:pointerover, Button.CollapseButtonStyle:pointerover">
+    <Style Selector="Button.ActionButtonStyle:pointerover, Button.CollapseButtonStyle:pointerover, Button.IconActionButtonStyle:pointerover">
         <Setter Property="RenderTransform" Value="scale(1.06)" />
+    </Style>
+
+    <!-- Press feedback: a small dip below the resting size, declared after the hover
+         rule so it wins while the button is both hovered and pressed. -->
+    <Style Selector="Button.ActionButtonStyle:pressed, Button.CollapseButtonStyle:pressed, Button.IconActionButtonStyle:pressed">
+        <Setter Property="RenderTransform" Value="scale(0.96)" />
+    </Style>
+
+    <!-- The favourite star changes colour when toggled; fade it rather than snap. -->
+    <Style Selector="Button.IconActionButtonStyle c|IconGlyph">
+        <Setter Property="Transitions">
+            <Transitions>
+                <BrushTransition Property="Foreground" Duration="0:0:0.15" />
+            </Transitions>
+        </Setter>
+    </Style>
+
+    <!-- Honour "Show animations in Windows" off. MainWindow adds this class once at startup. -->
+    <Style Selector="Window.reduceMotion Button">
+        <Setter Property="Transitions" Value="{x:Null}" />
+    </Style>
+    <Style Selector="Window.reduceMotion Button.IconActionButtonStyle c|IconGlyph">
+        <Setter Property="Transitions" Value="{x:Null}" />
     </Style>
 
     <!-- The story detail pane's URL. Only the pointer is changed: a hand belongs
@@ -91,48 +137,112 @@
 
     <Style Selector="TextBlock.MetaText">
         <Setter Property="FontSize" Value="12" />
-        <Setter Property="Foreground" Value="{DynamicResource TextFillColorSecondaryBrush}" />
+        <Setter Property="Foreground" Value="{DynamicResource HnTextSecondaryBrush}" />
         <Setter Property="VerticalAlignment" Value="Center" />
     </Style>
 
-    <!-- Every Phosphor glyph in the app. FontSize is set explicitly because FAFontIcon,
-         unlike FASymbolIcon, declares no 18px default - without this it would inherit the
+    <!-- Every Phosphor glyph in the app. FontSize is set explicitly because the
+         control declares no default of its own - without this it would inherit the
          ambient ~14 and icons would quietly change size. Call sites override as needed. -->
-    <Style Selector="ui|FontIcon">
+    <Style Selector="c|IconGlyph">
         <!-- DynamicResource, not Static: this file is a StyleInclude in
              Application.Styles, which is built before Application.Resources exists,
              so a static lookup here cannot see PhosphorFont. -->
         <Setter Property="FontFamily" Value="{DynamicResource PhosphorFont}" />
         <Setter Property="FontSize" Value="16" />
+        <Setter Property="TextAlignment" Value="Center" />
+        <Setter Property="Padding" Value="0" />
+        <!-- A TextBlock reserves the font's full line box, which is taller than
+             the FontIcon box this replaces, so an un-centred glyph sits low.
+             Centring both ways makes it read at the same optical position in the
+             fixed-size slots (the 14x14 favicon panels) that motivated this. -->
+        <Setter Property="VerticalAlignment" Value="Center" />
+        <Setter Property="HorizontalAlignment" Value="Center" />
     </Style>
 
-    <!-- Dimmed 12px glyph for story/digest meta rows (author, time, comment count). -->
-    <Style Selector="ui|FontIcon.MetaIcon">
+    <Style Selector="c|IconGlyph.MetaIcon">
         <Setter Property="FontSize" Value="12" />
-        <Setter Property="Foreground" Value="{DynamicResource TextFillColorSecondaryBrush}" />
+        <Setter Property="Foreground" Value="{DynamicResource HnTextSecondaryBrush}" />
+    </Style>
+
+    <!-- Story list rows.
+
+         The stock ListBoxItem paints its selected state with a solid accent fill
+         and white text, which is right for a one-line list and wrong for these:
+         each row is a multi-line card with its own score badge, favicon and meta
+         row, and a full brand-orange block behind it drowns all of that. A quiet
+         tint marks the row just as clearly and lets the row's own content keep
+         its colours.
+
+         Set on PART_ContentPresenter, not on the item: that is where the stock
+         theme paints, and its own :selected setter outranks a Background setter
+         on ListBoxItem itself. Each state is spelled out because the theme
+         defines :selected, :selected:pointerover and :selected:focus separately -
+         leave one out and the fill reverts to accent on that interaction. -->
+    <Style Selector="ListBox.rowList > ListBoxItem">
+        <Setter Property="Padding" Value="0" />
+        <Setter Property="Margin" Value="0,2" />
+        <Setter Property="CornerRadius" Value="8" />
+    </Style>
+
+    <Style Selector="ListBox.rowList > ListBoxItem:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+        <Setter Property="Background" Value="{DynamicResource HnSelectionHoverBrush}" />
+    </Style>
+
+    <Style Selector="ListBox.rowList > ListBoxItem:selected /template/ ContentPresenter#PART_ContentPresenter,
+                     ListBox.rowList > ListBoxItem:selected:pointerover /template/ ContentPresenter#PART_ContentPresenter,
+                     ListBox.rowList > ListBoxItem:selected:focus /template/ ContentPresenter#PART_ContentPresenter,
+                     ListBox.rowList > ListBoxItem:selected:focus-within /template/ ContentPresenter#PART_ContentPresenter">
+        <Setter Property="Background" Value="{DynamicResource HnSelectionBackgroundBrush}" />
+        <Setter Property="Foreground" Value="{DynamicResource HnTextPrimaryBrush}" />
+    </Style>
+
+    <!-- Quiet outlined button, used for the detail pane's secondary actions (Open Link,
+         the comments toggle). Outlined rather than accent-filled: the pane already carries
+         an orange score pill, and more orange blocks on one screen stop any of them
+         reading as emphasis. The stock Button fill is too heavy here for the same reason. -->
+    <Style Selector="Button.outlined">
+        <Setter Property="Padding" Value="14,8" />
+        <Setter Property="CornerRadius" Value="6" />
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="BorderBrush" Value="{DynamicResource HnCardStrokeBrush}" />
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="Foreground" Value="{DynamicResource HnTextPrimaryBrush}" />
+    </Style>
+
+    <!-- The stock Button theme paints its fill on the inner presenter, and its own
+         :pointerover setter outranks a Background setter on the Button itself. -->
+    <Style Selector="Button.outlined /template/ ContentPresenter#PART_ContentPresenter">
+        <Setter Property="Background" Value="Transparent" />
+    </Style>
+
+    <Style Selector="Button.outlined:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+        <Setter Property="Background" Value="{DynamicResource HnSelectionHoverBrush}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource HnAccentBrush}" />
+    </Style>
+
+    <!-- One caret glyph rotated, rather than swapping between caret-up and caret-down:
+         two icons can drift apart, a rotation cannot. -->
+    <Style Selector="Button.outlined c|IconGlyph">
+        <Setter Property="RenderTransform" Value="rotate(0deg)" />
+        <Setter Property="Transitions">
+            <Transitions>
+                <TransformOperationsTransition Property="RenderTransform" Duration="0:0:0.15" Easing="CubicEaseOut" />
+            </Transitions>
+        </Setter>
+    </Style>
+
+    <Style Selector="Button.outlined.collapsed c|IconGlyph">
+        <Setter Property="RenderTransform" Value="rotate(180deg)" />
     </Style>
 
     <Style Selector="Border.ScoreBadge">
-        <Setter Property="Background" Value="{DynamicResource CardBackgroundFillColorDefaultBrush}" />
-        <Setter Property="BorderBrush" Value="{DynamicResource CardStrokeColorDefaultBrush}" />
+        <Setter Property="Background" Value="{DynamicResource HnCardBackgroundBrush}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource HnCardStrokeBrush}" />
         <Setter Property="BorderThickness" Value="1" />
         <Setter Property="CornerRadius" Value="8" />
         <Setter Property="Padding" Value="8,6" />
     </Style>
 
-    <!-- The pane's section labels ("Browse", "Personal"). FluentAvaloniaUI already
-         sets NavigationViewItem itself to FontWeight Normal, so the items were never
-         bold - only these headers are, and the weight does NOT live on the header
-         control. Its template renders a TextBlock#HeaderText carrying an explicit
-         Theme (NavigationViewItemHeaderTextStyle, SemiBold), and an explicit Theme
-         beats inheritance - so a Setter on ui|NavigationViewItemHeader silently does
-         nothing. The template selector below is what actually reaches the text.
-         Dropped to Normal at caption size so the headers read as quiet dividers
-         rather than competing with the items they group. -->
-    <Style Selector="ui|NavigationViewItemHeader /template/ TextBlock#HeaderText">
-        <Setter Property="FontWeight" Value="Normal" />
-        <Setter Property="FontSize" Value="12" />
-        <Setter Property="Foreground" Value="{DynamicResource TextFillColorSecondaryBrush}" />
-    </Style>
 
 </Styles>

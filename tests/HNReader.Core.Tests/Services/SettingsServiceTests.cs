@@ -66,73 +66,84 @@ public class SettingsServiceTests : IDisposable
         Assert.False(fired);
     }
 
-    // ── Digest feature toggle ────────────────────────────────────────────
-
+    /// <summary>Older settings can contain fields the current settings model no longer uses.</summary>
     [Fact]
-    public void IsDigestEnabled_DefaultsToOff()
+    public void Load_SettingsWithObsoleteProperties_PreservesTheme()
     {
-        var service = new SettingsService(_testSettingsDir);
-
-        // Opt-in on purpose: the digest depends on a server the user may not be
-        // running, so a fresh install makes no requests to it.
-        Assert.False(service.IsDigestEnabled);
-    }
-
-    [Fact]
-    public void IsDigestEnabled_SetAndGet_RoundTrips()
-    {
-        var service = new SettingsService(_testSettingsDir);
-        service.IsDigestEnabled = true;
-        Assert.True(service.IsDigestEnabled);
-    }
-
-    [Fact]
-    public void IsDigestEnabled_PersistsAcrossInstances()
-    {
-        new SettingsService(_testSettingsDir).IsDigestEnabled = true;
-
-        var reloaded = new SettingsService(_testSettingsDir);
-
-        Assert.True(reloaded.IsDigestEnabled);
-    }
-
-    [Fact]
-    public void IsDigestEnabled_TriggersChangedEvent()
-    {
-        var service = new SettingsService(_testSettingsDir);
-        bool? raised = null;
-        service.DigestEnabledChanged += (_, value) => raised = value;
-
-        service.IsDigestEnabled = true;
-
-        Assert.True(raised);
-    }
-
-    [Fact]
-    public void IsDigestEnabled_SettingSameValue_DoesNotRaise()
-    {
-        var service = new SettingsService(_testSettingsDir);
-        var raisedCount = 0;
-        service.DigestEnabledChanged += (_, _) => raisedCount++;
-
-        service.IsDigestEnabled = false;
-
-        Assert.Equal(0, raisedCount);
-    }
-
-    /// <summary>
-    /// The real upgrade path: a settings file written before the digest existed
-    /// has no IsDigestEnabled key at all, and must load with the feature off
-    /// rather than throwing.
-    /// </summary>
-    [Fact]
-    public void Load_SettingsFileFromBeforeTheDigestExisted_LeavesFeatureOff()
-    {
-        File.WriteAllText(_testSettingsFile, "{\"Theme\":2}");
+        File.WriteAllText(_testSettingsFile,
+            "{\"Theme\":2,\"IsDigestEnabled\":true,\"SelectedDigestCategories\":[\"Science\"]}");
 
         var service = new SettingsService(_testSettingsDir);
 
         Assert.Equal(AppTheme.Dark, service.Theme);
-        Assert.False(service.IsDigestEnabled);
+        service.Theme = AppTheme.Light;
+
+        var reloaded = new SettingsService(_testSettingsDir);
+        Assert.Equal(AppTheme.Light, reloaded.Theme);
+    }
+
+    [Fact]
+    public void Load_UndefinedThemeValue_FallsBackToAuto()
+    {
+        File.WriteAllText(_testSettingsFile, "{\"Theme\":42}");
+
+        var service = new SettingsService(_testSettingsDir);
+
+        Assert.Equal(AppTheme.Auto, service.Theme);
+    }
+
+    [Fact]
+    public void Load_CorruptFile_FallsBackToDefaults()
+    {
+        File.WriteAllText(_testSettingsFile, "{ not json");
+
+        var service = new SettingsService(_testSettingsDir);
+
+        Assert.Equal(AppTheme.Auto, service.Theme);
+    }
+
+    [Fact]
+    public void Save_LeavesNoTempFileBehind()
+    {
+        var service = new SettingsService(_testSettingsDir);
+        service.Theme = AppTheme.Light;
+
+        Assert.True(File.Exists(_testSettingsFile));
+        Assert.False(File.Exists(_testSettingsFile + ".tmp"));
+    }
+
+    [Fact]
+    public void Save_MissingDirectory_IsRecreated()
+    {
+        var nested = Path.Combine(_testSettingsDir, "nested");
+        var service = new SettingsService(nested);
+        service.Theme = AppTheme.Dark;
+
+        Assert.Equal(AppTheme.Dark, new SettingsService(nested).Theme);
+    }
+
+    [Fact]
+    public void ConfirmCommentLinks_DefaultsToTrue()
+    {
+        Assert.True(new SettingsService(_testSettingsDir).ConfirmCommentLinks);
+    }
+
+    [Fact]
+    public void ConfirmCommentLinks_PersistsAcrossInstances()
+    {
+        new SettingsService(_testSettingsDir).ConfirmCommentLinks = false;
+
+        Assert.False(new SettingsService(_testSettingsDir).ConfirmCommentLinks);
+    }
+
+    [Fact]
+    public void Load_FileWithoutConfirmField_KeepsPromptOn()
+    {
+        File.WriteAllText(_testSettingsFile, "{\"Theme\":1}");
+
+        var service = new SettingsService(_testSettingsDir);
+
+        Assert.Equal(AppTheme.Light, service.Theme);
+        Assert.True(service.ConfirmCommentLinks);
     }
 }

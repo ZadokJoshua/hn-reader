@@ -34,6 +34,8 @@ public class NotificationService
 
     private void Show(string title, string message, NotificationType type)
     {
-        _manager?.Show(new Notification(title, message, type, TimeSpan.FromSeconds(2.5)));
+        // Errors stay up longer: they are the one toast the user must be able to finish reading.
+        var duration = type == NotificationType.Error ? TimeSpan.FromSeconds(5) : TimeSpan.FromSeconds(2.5);
+        _manager?.Show(new Notification(title, message, type, duration));
     }
 }

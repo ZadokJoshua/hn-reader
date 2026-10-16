@@ -15,11 +15,16 @@ public class HNWebClient
 {
     private readonly HttpClient _httpClient;
     private readonly ILogger? _logger;
+    private readonly HNWebRequestCoordinator _requestCoordinator;
 
-    public HNWebClient(HttpClient httpClient, ILogger? logger = null)
+    public HNWebClient(
+        HttpClient httpClient,
+        ILogger? logger = null,
+        HNWebRequestCoordinator? requestCoordinator = null)
     {
         _httpClient = httpClient;
         _logger = logger;
+        _requestCoordinator = requestCoordinator ?? new HNWebRequestCoordinator();
     }
 
     /// <summary>
@@ -33,7 +38,9 @@ public class HNWebClient
     {
         try
         {
-            var html = await _httpClient.GetStringAsync($"item?id={storyId}", cancellationToken).ConfigureAwait(false);
+            var html = await _requestCoordinator
+                .GetItemHtmlAsync(_httpClient, storyId, cancellationToken)
+                .ConfigureAwait(false);
             cancellationToken.ThrowIfCancellationRequested();
 
             // Count <tr class="comtr"> rows. This is the source of truth — the
@@ -84,7 +91,9 @@ public class HNWebClient
 
         try
         {
-            var html = await _httpClient.GetStringAsync($"item?id={storyId}", cancellationToken).ConfigureAwait(false);
+            var html = await _requestCoordinator
+                .GetItemHtmlAsync(_httpClient, storyId, cancellationToken)
+                .ConfigureAwait(false);
             cancellationToken.ThrowIfCancellationRequested();
 
             var doc = new HtmlDocument();

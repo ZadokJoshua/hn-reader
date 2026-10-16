@@ -201,8 +201,7 @@ public class FaviconServiceTests
     }
 
     /// <summary>
-    /// Returns queued responses in order, then a default, recording every URI requested.
-    /// Extends the single-response handler pattern used by <see cref="DigestClientTests"/>
+    /// Returns queued responses in order, then a default, recording every URI requested
     /// so a whole fallback chain can be scripted in one test.
     /// </summary>
     private sealed class QueuedHandler : HttpMessageHandler

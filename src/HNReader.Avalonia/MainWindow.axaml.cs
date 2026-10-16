@@ -1,13 +1,8 @@
-﻿using System;
 using Avalonia.Controls;
 using Avalonia.Input;
-using Avalonia.Interactivity;
-using Avalonia.Threading;
-using FluentAvalonia.UI.Controls;
 using HNReader.Avalonia.Controls;
 using HNReader.Avalonia.Services;
-using HNReader.Core.Enums;
-using HNReader.Core.Interfaces;
+using HNReader.Avalonia.Viewmodels;
 using HNReader.Core.Viewmodels;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -17,19 +12,7 @@ public partial class MainWindow : Window
 {
     private readonly MainViewModel _mainViewModel;
     private NavigationService? _navigationService;
-    private ISettingsService? _settingsService;
-    private bool _suppressNavSelection;
-
-    // Tracked so turning the digest off while its page is open can navigate away
-    // from it. OnPageNavigated already fires for every navigation.
-    private ApplicationPages _currentPage = ApplicationPages.Top;
-
-    // FluentAvalonia's NavigationView can apply its own default item
-    // selection asynchronously while it finishes loading, which races with
-    // (and can silently override) the app's initial navigation. Until our
-    // deliberate initial navigation has run, any SelectionChanged is treated
-    // as internal noise and ignored rather than acted on.
-    private bool _initialNavigationDone;
+    private NavigationViewModel? _navigationViewModel;
 
     // Parameterless constructor kept for the Avalonia XAML previewer only.
     public MainWindow() : this(null!)
@@ -40,155 +23,91 @@ public partial class MainWindow : Window
     {
         InitializeComponent();
         _mainViewModel = mainViewModel;
-        DataContext = _mainViewModel;
 
         if (global::Avalonia.Application.Current is App app && app.Services != null)
         {
             _navigationService = app.Services.GetService<NavigationService>();
-            if (_navigationService != null)
-            {
-                _navigationService.Initialize(ContentHost);
-                _navigationService.Navigated += OnPageNavigated;
-            }
+            _navigationService?.Initialize(ContentHost);
+
+            // Assigned before the window's own DataContext, not after. The pane
+            // needs its own view model - MainViewModel is shared with the WinUI
+            // shell and knows nothing about navigation - and setting the window
+            // DataContext first would propagate MainViewModel into the pane for
+            // one layout pass, failing every binding in it on the way through.
+            _navigationViewModel = app.Services.GetService<NavigationViewModel>();
+            NavPane.DataContext = _navigationViewModel;
 
             app.Services.GetService<NotificationService>()?.Attach(this);
 
-            // The digest nav item is the feature's first off-switch (the second
-            // is in DigestPageViewModel, which makes no request when disabled).
-            // Handled here rather than on MainViewModel, which is shared with
-            // the WinUI shell and constructed by an explicit factory there — a
-            // new required dependency would break that build.
-            _settingsService = app.Services.GetService<ISettingsService>();
-            if (_settingsService != null)
-            {
-                ApplyDigestVisibility(_settingsService.IsDigestEnabled);
-                _settingsService.DigestEnabledChanged += OnDigestEnabledChanged;
-
-                // The settings service is a singleton that outlives this window.
-                Closed += (_, _) => _settingsService.DigestEnabledChanged -= OnDigestEnabledChanged;
-            }
+            Closed += (_, _) => _navigationViewModel?.Dispose();
         }
 
-        NavView.SelectionChanged += NavView_SelectionChanged;
+        DataContext = _mainViewModel;
+
+        // Windows "Show animations" is off: drop the page cross-fade and let the
+        // reduceMotion style (Styles/Resources.axaml) strip button transitions.
+        if (MotionPreference.ReducedMotion)
+        {
+            Classes.Add("reduceMotion");
+            ContentHost.PageTransition = null;
+        }
+
         KeyDown += OnKeyDown;
 
-        SetPagesTags();
-
-        // Run after the current layout/loaded pass so it lands after any
-        // internal default-selection NavigationView performs on its own.
-        Dispatcher.UIThread.Post(RunInitialNavigation, DispatcherPriority.Background);
+        // Navigated directly, with no dispatcher post and no "has the initial
+        // navigation happened yet" flag. Both used to be needed because
+        // NavigationView applied its own default selection asynchronously and
+        // raced this call; the pane is a plain ItemsControl with no selection of
+        // its own, so there is nothing left to race.
+        _navigationService?.NavigateToPage(HNReader.Core.Enums.ApplicationPages.Top);
     }
 
-    private void RunInitialNavigation()
+    // The window has no system title bar to drag, so the strip above the content
+    // column provides one.
+    private void OnTitleStripPointerPressed(object? sender, PointerPressedEventArgs e)
     {
-        SelectNavItemForPage(ApplicationPages.Top);
-        _navigationService?.NavigateToPage(ApplicationPages.Top);
-        _initialNavigationDone = true;
+        if (!e.GetCurrentPoint(this).Properties.IsLeftButtonPressed) return;
+        BeginMoveDrag(e);
     }
 
-    private void OnPageNavigated(ApplicationPages page)
-    {
-        _currentPage = page;
-        SelectNavItemForPage(page);
-    }
-
-    private void OnDigestEnabledChanged(object? sender, bool enabled) =>
-        Dispatcher.UIThread.Post(() => ApplyDigestVisibility(enabled));
-
-    private void ApplyDigestVisibility(bool enabled)
-    {
-        DigestPageNavItem.IsVisible = enabled;
-
-        // Don't leave the user stranded on a page they just switched off.
-        if (!enabled && _currentPage == ApplicationPages.Digest)
-        {
-            _navigationService?.NavigateToPage(ApplicationPages.New);
-        }
-    }
+    private void OnTitleStripDoubleTapped(object? sender, TappedEventArgs e) =>
+        WindowState = WindowState == WindowState.Maximized
+            ? WindowState.Normal
+            : WindowState.Maximized;
 
     private void OnKeyDown(object? sender, KeyEventArgs e)
     {
         if (e.KeyModifiers != KeyModifiers.Control) return;
 
-        // Ordered to match the nav pane top to bottom, so the number a user counts
-        // down the sidebar is the number they press. (These previously ran New-first
-        // and had Digest and Favourites transposed against the visible order.)
-        var page = e.Key switch
+        var ordinal = e.Key switch
         {
-            Key.D1 or Key.NumPad1 => ApplicationPages.Top,
-            Key.D2 or Key.NumPad2 => ApplicationPages.New,
-            Key.D3 or Key.NumPad3 => ApplicationPages.Best,
-            Key.D4 or Key.NumPad4 => ApplicationPages.Show,
-            Key.D5 or Key.NumPad5 => ApplicationPages.Ask,
-            Key.D6 or Key.NumPad6 => ApplicationPages.Digest,
-            Key.D7 or Key.NumPad7 => ApplicationPages.Favourites,
-            _ => (ApplicationPages?)null
+            Key.D1 or Key.NumPad1 => 1,
+            Key.D2 or Key.NumPad2 => 2,
+            Key.D3 or Key.NumPad3 => 3,
+            Key.D4 or Key.NumPad4 => 4,
+            Key.D5 or Key.NumPad5 => 5,
+            Key.D6 or Key.NumPad6 => 6,
+            Key.D7 or Key.NumPad7 => 7,
+            _ => 0
         };
 
-        // The shortcut is gated on the setting too, so it can't reach a page
-        // whose nav item is hidden.
-        if (page == ApplicationPages.Digest && _settingsService?.IsDigestEnabled != true)
+        // The number the user counts down the sidebar is the number they press,
+        // because the view model indexes the visible items in render order rather
+        // than mapping keys to pages by hand.
+        if (ordinal > 0)
         {
-            return;
-        }
-
-        if (page != null)
-        {
-            _navigationService?.NavigateToPage(page.Value);
-            e.Handled = true;
+            if (_navigationViewModel?.TryNavigateByOrdinal(ordinal) == true) e.Handled = true;
             return;
         }
 
         if (e.Key == Key.F)
         {
+            // Reached through Content rather than by searching the visual tree:
+            // during a page transition the outgoing page is still in the tree, and
+            // a tree search would find its search box instead of the new one.
             var storiesControl = (ContentHost.Content as ContentControl)?.Content as StoriesPageControl;
             storiesControl?.FocusSearchBox();
             e.Handled = true;
         }
-    }
-
-    private void SetPagesTags()
-    {
-        NewPageNavItem.Tag = ApplicationPages.New.ToString();
-        TopPageNavItem.Tag = ApplicationPages.Top.ToString();
-        BestPageNavItem.Tag = ApplicationPages.Best.ToString();
-        ShowPageNavItem.Tag = ApplicationPages.Show.ToString();
-        AskPageNavItem.Tag = ApplicationPages.Ask.ToString();
-        FavouritesPageNavItem.Tag = ApplicationPages.Favourites.ToString();
-        DigestPageNavItem.Tag = ApplicationPages.Digest.ToString();
-        SettingsPageNavItem.Tag = ApplicationPages.Settings.ToString();
-    }
-
-    private void SelectNavItemForPage(ApplicationPages page)
-    {
-        var target = page switch
-        {
-            ApplicationPages.New => NewPageNavItem,
-            ApplicationPages.Top => TopPageNavItem,
-            ApplicationPages.Best => BestPageNavItem,
-            ApplicationPages.Show => ShowPageNavItem,
-            ApplicationPages.Ask => AskPageNavItem,
-            ApplicationPages.Favourites => FavouritesPageNavItem,
-            ApplicationPages.Digest => DigestPageNavItem,
-            ApplicationPages.Settings => SettingsPageNavItem,
-            _ => NewPageNavItem
-        };
-
-        if (ReferenceEquals(NavView.SelectedItem, target)) return;
-
-        _suppressNavSelection = true;
-        NavView.SelectedItem = target;
-        _suppressNavSelection = false;
-    }
-
-    private void NavView_SelectionChanged(object? sender, NavigationViewSelectionChangedEventArgs args)
-    {
-        if (_suppressNavSelection) return;
-        if (!_initialNavigationDone) return;
-
-        if (args.SelectedItem is not NavigationViewItem selectedItem || selectedItem.Tag is null) return;
-
-        var page = Enum.Parse<ApplicationPages>(selectedItem.Tag.ToString()!);
-        _navigationService?.NavigateToPage(page);
     }
 }

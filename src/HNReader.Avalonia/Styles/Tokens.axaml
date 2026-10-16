@@ -1,0 +1,158 @@
+<!--
+    App-owned design tokens.
+
+    Every colour the app paints resolves through a key in this file. Nothing here
+    is named after a third-party theme, which is the point: the previous palette
+    was half ours and half FluentAvalonia's, and the borrowed half was built from
+    low-alpha fills meant to composite over a translucent Mica backdrop rather
+    than to stand alone as flat colour - which is how every page actually uses
+    them. All values below are opaque, so a surface means the same thing wherever
+    it is painted.
+
+    Theme-varying keys live in the ThemeDictionaries; only genuinely invariant
+    ones (the brand hue, white-on-accent, the pane metrics) sit at the top level.
+
+    Consume these with DynamicResource, never StaticResource - a static lookup
+    binds to whichever variant was active at load and then silently never
+    repaints when the theme changes. StaticResource is safe only for a
+    Color -> SolidColorBrush reference inside the same dictionary.
+-->
+<ResourceDictionary xmlns="https://github.com/avaloniaui"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <!-- Brand. Pinned rather than derived from the OS accent so the app looks
+         the same on every machine. Invariant across themes: the hue is the
+         brand; only its interaction shades below vary. -->
+    <Color x:Key="HnAccentColor">#FFFF6600</Color>
+    <SolidColorBrush x:Key="HnAccentBrush" Color="{StaticResource HnAccentColor}" />
+    <SolidColorBrush x:Key="HnAccentDisabledBrush" Color="{StaticResource HnAccentColor}" Opacity="0.4" />
+    <SolidColorBrush x:Key="HnTextOnAccentBrush" Color="#FFFFFFFF" />
+
+    <!-- Nav pane metrics. Shared between the pane's open/collapsed styles and
+         its item template so the glyph column cannot drift out of alignment
+         with the collapsed width. -->
+    <x:Double x:Key="NavPaneOpenWidth">220</x:Double>
+    <x:Double x:Key="NavPaneCollapsedWidth">56</x:Double>
+    <x:Double x:Key="NavItemHeight">40</x:Double>
+    <x:Double x:Key="NavIndicatorWidth">3</x:Double>
+    <!-- The fixed box every nav glyph is centred in. Must stay equal to
+         NavPaneCollapsedWidth minus twice the 6px horizontal margin on
+         Button.navItem: that is what puts the glyph on the pane's centre line
+         when collapsed, and on the same line when expanded so it does not slide
+         sideways during the width animation. -->
+    <x:Double x:Key="NavGlyphBoxWidth">44</x:Double>
+
+    <ResourceDictionary.ThemeDictionaries>
+
+        <ResourceDictionary x:Key="Light">
+            <!-- Surfaces -->
+            <SolidColorBrush x:Key="HnPageBackgroundBrush" Color="#FFF3F3F3" />
+            <SolidColorBrush x:Key="HnContentBackgroundBrush" Color="#FFFFFFFF" />
+            <SolidColorBrush x:Key="HnCardBackgroundBrush" Color="#FFFFFFFF" />
+            <SolidColorBrush x:Key="HnCardStrokeBrush" Color="#FFE1E1E1" />
+            <SolidColorBrush x:Key="HnPaneBackgroundBrush" Color="#FFF9F9F9" />
+            <SolidColorBrush x:Key="HnPaneBorderBrush" Color="#FFE5E5E5" />
+            <SolidColorBrush x:Key="HnDividerBrush" Color="#FFE5E5E5" />
+
+            <!-- Text. Opaque flattenings of the alpha tokens these replace. -->
+            <SolidColorBrush x:Key="HnTextPrimaryBrush" Color="#FF1A1A1A" />
+            <SolidColorBrush x:Key="HnTextSecondaryBrush" Color="#FF5D5D5D" />
+            <SolidColorBrush x:Key="HnTextTertiaryBrush" Color="#FF8A8A8A" />
+            <SolidColorBrush x:Key="HnTextDisabledBrush" Color="#FFA0A0A0" />
+
+            <!-- Accent interaction shades. Hover means DARKER in light theme. -->
+            <SolidColorBrush x:Key="HnAccentHoverBrush" Color="#FFE65C00" />
+            <SolidColorBrush x:Key="HnAccentPressedBrush" Color="#FFCC5200" />
+
+            <!-- Accent-as-text. #FF6600 on white is ~2.9:1 and fails WCAG AA, so
+                 accent-coloured TEXT uses this darkened variant while
+                 HnAccentBrush stays pure brand for fills and decorative glyphs. -->
+            <SolidColorBrush x:Key="HnAccentTextBrush" Color="#FFB34700" />
+
+            <!-- Links in rendered markdown. Blue rather than the brand orange on
+                 purpose: comment authors are already drawn in HnAccentTextBrush, and
+                 an orange link inside an orange-bylined comment reads as another
+                 username. The underline carries the affordance; the hue separates
+                 links from people. -->
+            <SolidColorBrush x:Key="HnLinkBrush" Color="#FF1A5FB4" />
+            <SolidColorBrush x:Key="HnLinkHoverBrush" Color="#FF0E3F7E" />
+
+            <!-- Selected row in a list. A tint plus an accent edge, not an accent
+                 fill: these rows are dense multi-line cards, and a solid brand
+                 block behind one shouts far louder than "this is the one you are
+                 reading" needs to. -->
+            <SolidColorBrush x:Key="HnSelectionBackgroundBrush" Color="#FFFFF0E6" />
+            <SolidColorBrush x:Key="HnSelectionHoverBrush" Color="#FFF0F0F0" />
+
+            <!-- Status -->
+            <SolidColorBrush x:Key="HnCriticalBrush" Color="#FFC42B1C" />
+            <SolidColorBrush x:Key="HnCriticalBackgroundBrush" Color="#FFFDE7E9" />
+            <SolidColorBrush x:Key="HnSuccessBrush" Color="#FF0F7B0F" />
+            <SolidColorBrush x:Key="HnSuccessBackgroundBrush" Color="#FFDFF6DD" />
+            <SolidColorBrush x:Key="HnInfoBrush" Color="#FF0F6CBD" />
+            <SolidColorBrush x:Key="HnInfoBackgroundBrush" Color="#FFF0F6FC" />
+            <SolidColorBrush x:Key="HnWarningBrush" Color="#FF9D5D00" />
+            <SolidColorBrush x:Key="HnWarningBackgroundBrush" Color="#FFFFF4CE" />
+
+            <!-- Navigation pane -->
+            <SolidColorBrush x:Key="HnNavItemForegroundBrush" Color="#FF3C3C3C" />
+            <SolidColorBrush x:Key="HnNavItemForegroundSelectedBrush" Color="#FF1A1A1A" />
+            <SolidColorBrush x:Key="HnNavItemBackgroundPointerOverBrush" Color="#FFEDEDED" />
+            <SolidColorBrush x:Key="HnNavItemBackgroundSelectedBrush" Color="#FFE4E4E4" />
+            <SolidColorBrush x:Key="HnNavItemBackgroundPressedBrush" Color="#FFDCDCDC" />
+            <SolidColorBrush x:Key="HnNavSectionHeaderBrush" Color="#FF8A8A8A" />
+            <SolidColorBrush x:Key="HnNavIndicatorBrush" Color="{StaticResource HnAccentColor}" />
+        </ResourceDictionary>
+
+        <ResourceDictionary x:Key="Dark">
+            <!-- Surfaces -->
+            <SolidColorBrush x:Key="HnPageBackgroundBrush" Color="#FF202020" />
+            <SolidColorBrush x:Key="HnContentBackgroundBrush" Color="#FF2B2B2B" />
+            <SolidColorBrush x:Key="HnCardBackgroundBrush" Color="#FF323232" />
+            <SolidColorBrush x:Key="HnCardStrokeBrush" Color="#FF3F3F3F" />
+            <SolidColorBrush x:Key="HnPaneBackgroundBrush" Color="#FF1C1C1C" />
+            <SolidColorBrush x:Key="HnPaneBorderBrush" Color="#FF303030" />
+            <SolidColorBrush x:Key="HnDividerBrush" Color="#FF363636" />
+
+            <!-- Text -->
+            <SolidColorBrush x:Key="HnTextPrimaryBrush" Color="#FFFFFFFF" />
+            <SolidColorBrush x:Key="HnTextSecondaryBrush" Color="#FFC8C8C8" />
+            <SolidColorBrush x:Key="HnTextTertiaryBrush" Color="#FF8F8F8F" />
+            <SolidColorBrush x:Key="HnTextDisabledBrush" Color="#FF6E6E6E" />
+
+            <!-- Accent interaction shades. Hover means LIGHTER in dark theme. -->
+            <SolidColorBrush x:Key="HnAccentHoverBrush" Color="#FFFF7A26" />
+            <SolidColorBrush x:Key="HnAccentPressedBrush" Color="#FFFF944D" />
+            <SolidColorBrush x:Key="HnAccentTextBrush" Color="#FFFF8A3D" />
+
+            <!-- Lightened for dark surfaces; see the light-theme note above. -->
+            <SolidColorBrush x:Key="HnLinkBrush" Color="#FF78B4FF" />
+            <SolidColorBrush x:Key="HnLinkHoverBrush" Color="#FFA8D0FF" />
+
+            <!-- Selected row in a list (see the light theme for why this is a
+                 tint rather than an accent fill). -->
+            <SolidColorBrush x:Key="HnSelectionBackgroundBrush" Color="#FF3A2A1E" />
+            <SolidColorBrush x:Key="HnSelectionHoverBrush" Color="#FF2F2F2F" />
+
+            <!-- Status -->
+            <SolidColorBrush x:Key="HnCriticalBrush" Color="#FFFF99A4" />
+            <SolidColorBrush x:Key="HnCriticalBackgroundBrush" Color="#FF442726" />
+            <SolidColorBrush x:Key="HnSuccessBrush" Color="#FF6CCB5F" />
+            <SolidColorBrush x:Key="HnSuccessBackgroundBrush" Color="#FF373D1B" />
+            <SolidColorBrush x:Key="HnInfoBrush" Color="#FF60CDFF" />
+            <SolidColorBrush x:Key="HnInfoBackgroundBrush" Color="#FF263238" />
+            <SolidColorBrush x:Key="HnWarningBrush" Color="#FFFCE100" />
+            <SolidColorBrush x:Key="HnWarningBackgroundBrush" Color="#FF433519" />
+
+            <!-- Navigation pane -->
+            <SolidColorBrush x:Key="HnNavItemForegroundBrush" Color="#FFD0D0D0" />
+            <SolidColorBrush x:Key="HnNavItemForegroundSelectedBrush" Color="#FFFFFFFF" />
+            <SolidColorBrush x:Key="HnNavItemBackgroundPointerOverBrush" Color="#FF2A2A2A" />
+            <SolidColorBrush x:Key="HnNavItemBackgroundSelectedBrush" Color="#FF333333" />
+            <SolidColorBrush x:Key="HnNavItemBackgroundPressedBrush" Color="#FF3A3A3A" />
+            <SolidColorBrush x:Key="HnNavSectionHeaderBrush" Color="#FF8F8F8F" />
+            <SolidColorBrush x:Key="HnNavIndicatorBrush" Color="{StaticResource HnAccentColor}" />
+        </ResourceDictionary>
+
+    </ResourceDictionary.ThemeDictionaries>
+</ResourceDictionary>
