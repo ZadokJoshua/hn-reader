@@ -1,13 +1,15 @@
 using HNReader.Core.Enums;
 using HNReader.Core.Interfaces;
 using HNReader.Core.Services;
+using HNReader.Core.Services.Logging;
+using System;
 
 namespace HNReader.Core.Viewmodels;
 
 public partial class AskPageViewModel : PageViewModel
 {
-    public AskPageViewModel(HNClient client, IFavoritesService favoritesService, ISettingsService settingsService, HNWebClient webClient, IContentScraperService contentScraperService, CopilotCliService copilotCliService, IVaultFileService vaultFileService)
-        : base(client, favoritesService, StoryType.Ask, contentScraperService, settingsService, webClient, copilotCliService, vaultFileService)
+    public AskPageViewModel(HNClient client, Lazy<IFavoritesService> favoritesService, HNWebClient webClient, ILogger? logger = null)
+        : base(client, favoritesService, StoryType.Ask, webClient, logger)
     {
         PageTitle = "Ask HN";
     }

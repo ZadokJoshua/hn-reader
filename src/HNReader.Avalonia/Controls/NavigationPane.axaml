@@ -1,0 +1,231 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:c="using:HNReader.Avalonia.Controls"
+             x:Class="HNReader.Avalonia.Controls.NavigationPane"
+             x:Name="PaneControl">
+
+    <UserControl.Resources>
+        <!-- One template, three lists. The item's DataContext is the
+             NavigationItem, so the command is reached through the pane root. -->
+        <DataTemplate x:Key="NavItemTemplate">
+            <Button Classes="navItem"
+                    Classes.selected="{Binding IsSelected}"
+                    IsVisible="{Binding IsVisible}"
+                    Command="{Binding #PaneControl.DataContext.NavigateCommand}"
+                    CommandParameter="{Binding}"
+                    HorizontalAlignment="Stretch"
+                    HorizontalContentAlignment="Stretch">
+                <!-- A Panel, so the indicator overlays rather than occupying a
+                     column. As a column it was 6px of layout that pushed the
+                     glyph off the pane's centre line when collapsed. -->
+                <Panel>
+
+                    <!-- Selection indicator. Grows and fades in rather than
+                         sliding between items: a single shared bar would have to
+                         span two separate lists and re-measure every time an item
+                         appears or the pane collapses. -->
+                    <Border Classes="navIndicator"
+                            Width="{DynamicResource NavIndicatorWidth}"
+                            Height="18"
+                            CornerRadius="2"
+                            HorizontalAlignment="Left"
+                            VerticalAlignment="Center"
+                            Background="{DynamicResource HnNavIndicatorBrush}"
+                            Opacity="0"
+                            RenderTransformOrigin="50%,50%"
+                            RenderTransform="scaleY(0.2)">
+                        <Border.Transitions>
+                            <Transitions>
+                                <DoubleTransition Property="Opacity" Duration="0:0:0.15" Easing="CubicEaseOut" />
+                                <TransformOperationsTransition Property="RenderTransform" Duration="0:0:0.22" Easing="CubicEaseOut" />
+                            </Transitions>
+                        </Border.Transitions>
+                    </Border>
+
+                    <!-- The glyph carries the fixed box itself rather than the
+                         column doing it: ColumnDefinition.Width is a GridLength,
+                         so it cannot take the shared Double token. -->
+                    <Grid ColumnDefinitions="Auto,*">
+
+                        <c:IconGlyph Grid.Column="0"
+                                     Classes="navGlyph"
+                                     Glyph="{Binding Glyph}"
+                                     Width="{DynamicResource NavGlyphBoxWidth}"
+                                     FontSize="18" />
+
+                        <TextBlock Grid.Column="1"
+                                   Classes="navLabel"
+                                   Text="{Binding Label}"
+                                   VerticalAlignment="Center"
+                                   TextWrapping="NoWrap"
+                                   Margin="4,0,8,0" />
+                    </Grid>
+                </Panel>
+            </Button>
+        </DataTemplate>
+    </UserControl.Resources>
+
+    <UserControl.Styles>
+        <!-- Pane shell. The width transition lives on the Border instance (see
+             PaneRoot below); these two styles only supply the target values. -->
+        <Style Selector="Border#PaneRoot">
+            <Setter Property="Width" Value="{DynamicResource NavPaneOpenWidth}" />
+        </Style>
+        <Style Selector="Border#PaneRoot.collapsed">
+            <Setter Property="Width" Value="{DynamicResource NavPaneCollapsedWidth}" />
+        </Style>
+
+        <Style Selector="Button.navItem">
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="Padding" Value="0" />
+            <Setter Property="Height" Value="{DynamicResource NavItemHeight}" />
+            <Setter Property="CornerRadius" Value="6" />
+            <Setter Property="Margin" Value="6,1" />
+            <Setter Property="Foreground" Value="{DynamicResource HnNavItemForegroundBrush}" />
+            <Setter Property="Cursor" Value="Hand" />
+        </Style>
+
+        <!-- The stock Button theme paints its fill on the inner presenter and its
+             own :pointerover setter outranks a Background setter on the Button, so
+             the hover and selected fills have to be applied there. -->
+        <Style Selector="Button.navItem /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="CornerRadius" Value="6" />
+            <Setter Property="Transitions">
+                <Transitions>
+                    <BrushTransition Property="Background" Duration="0:0:0.12" />
+                </Transitions>
+            </Setter>
+        </Style>
+
+        <Style Selector="Button.navItem:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="{DynamicResource HnNavItemBackgroundPointerOverBrush}" />
+        </Style>
+
+        <Style Selector="Button.navItem:pressed /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="{DynamicResource HnNavItemBackgroundPressedBrush}" />
+        </Style>
+
+        <Style Selector="Button.navItem.selected /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="{DynamicResource HnNavItemBackgroundSelectedBrush}" />
+        </Style>
+
+        <Style Selector="Button.navItem.selected">
+            <Setter Property="Foreground" Value="{DynamicResource HnNavItemForegroundSelectedBrush}" />
+        </Style>
+
+        <Style Selector="Button.navItem.selected TextBlock.navLabel">
+            <Setter Property="FontWeight" Value="SemiBold" />
+        </Style>
+
+        <Style Selector="Button.navItem.selected c|IconGlyph.navGlyph">
+            <Setter Property="Foreground" Value="{DynamicResource HnNavIndicatorBrush}" />
+        </Style>
+
+        <Style Selector="Button.navItem.selected Border.navIndicator">
+            <Setter Property="Opacity" Value="1" />
+            <Setter Property="RenderTransform" Value="scaleY(1)" />
+        </Style>
+
+        <!-- Section headers -->
+        <Style Selector="TextBlock.navSectionHeader">
+            <Setter Property="FontSize" Value="12" />
+            <Setter Property="Foreground" Value="{DynamicResource HnNavSectionHeaderBrush}" />
+            <Setter Property="Margin" Value="16,14,12,4" />
+            <Setter Property="TextWrapping" Value="NoWrap" />
+            <!-- Explicit, because the collapsed state animates Height to 0 and a
+                 transition has nothing to animate from while Height is NaN. -->
+            <Setter Property="Height" Value="18" />
+        </Style>
+
+        <!-- Collapsing: labels fade out rather than being hidden, because
+             IsVisible cannot animate and pops. The fixed glyph box is unaffected, so
+             as the pane narrows the star-sized label column collapses and
+             PaneRoot's ClipToBounds shears the text away while the icon stays put. -->
+        <Style Selector="Border#PaneRoot TextBlock.navLabel, Border#PaneRoot TextBlock.navSectionHeader">
+            <Setter Property="Transitions">
+                <Transitions>
+                    <DoubleTransition Property="Opacity" Duration="0:0:0.10" />
+                </Transitions>
+            </Setter>
+        </Style>
+
+        <Style Selector="Border#PaneRoot.collapsed TextBlock.navLabel">
+            <Setter Property="Opacity" Value="0" />
+        </Style>
+
+        <!-- Section headers give up their space as well as their ink. Fading
+             alone left the header's line box and its 14+4 margin behind, which
+             read as two unexplained gaps in the collapsed strip exactly where
+             "Browse" and "Personal" had been. Height and Margin are animated
+             alongside the opacity so the gap closes with the pane rather than
+             snapping shut. -->
+        <Style Selector="Border#PaneRoot TextBlock.navSectionHeader">
+            <Setter Property="Transitions">
+                <Transitions>
+                    <DoubleTransition Property="Opacity" Duration="0:0:0.10" />
+                    <DoubleTransition Property="Height" Duration="0:0:0.18" Easing="CubicEaseOut" />
+                    <ThicknessTransition Property="Margin" Duration="0:0:0.18" Easing="CubicEaseOut" />
+                </Transitions>
+            </Setter>
+        </Style>
+
+        <Style Selector="Border#PaneRoot.collapsed TextBlock.navSectionHeader">
+            <Setter Property="Opacity" Value="0" />
+            <Setter Property="Height" Value="0" />
+            <Setter Property="Margin" Value="0" />
+        </Style>
+    </UserControl.Styles>
+
+    <Border x:Name="PaneRoot"
+            ClipToBounds="True"
+            Classes.collapsed="{Binding !IsPaneOpen}"
+            Background="{DynamicResource HnPaneBackgroundBrush}"
+            BorderBrush="{DynamicResource HnPaneBorderBrush}"
+            BorderThickness="0,0,1,0">
+        <Border.Transitions>
+            <Transitions>
+                <DoubleTransition Property="Width" Duration="0:0:0.18" Easing="CubicEaseOut" />
+            </Transitions>
+        </Border.Transitions>
+
+        <!-- Only the middle row grows, so Settings stays pinned to the bottom
+             however long the item list gets or however tall the window is. -->
+        <Grid RowDefinitions="Auto,*,Auto">
+
+            <!-- Toggle, in the same glyph box as the items so it stays aligned
+                 with them in both pane widths. Left-aligned and sized to the box
+                 so the button does not stretch across an expanded pane. -->
+            <Button Grid.Row="0"
+                    Classes="navItem"
+                    Command="{Binding TogglePaneCommand}"
+                    ToolTip.Tip="Toggle navigation pane"
+                    Margin="6,8,6,4"
+                    Width="{DynamicResource NavGlyphBoxWidth}"
+                    HorizontalAlignment="Left">
+                <c:IconGlyph Glyph="{DynamicResource IconMenu}" FontSize="18" />
+            </Button>
+
+            <ScrollViewer Grid.Row="1"
+                          VerticalScrollBarVisibility="Auto"
+                          HorizontalScrollBarVisibility="Disabled">
+                <StackPanel>
+                    <TextBlock Classes="navSectionHeader" Text="Browse" />
+                    <ItemsControl ItemsSource="{Binding BrowseItems}"
+                                  ItemTemplate="{StaticResource NavItemTemplate}" />
+
+                    <TextBlock Classes="navSectionHeader" Text="Personal" />
+                    <ItemsControl ItemsSource="{Binding PersonalItems}"
+                                  ItemTemplate="{StaticResource NavItemTemplate}" />
+                </StackPanel>
+            </ScrollViewer>
+
+            <!-- Settings, pinned to the bottom of the pane. -->
+            <StackPanel Grid.Row="2" Margin="0,0,0,10">
+                <ItemsControl ItemsSource="{Binding FooterItems}"
+                              ItemTemplate="{StaticResource NavItemTemplate}" />
+            </StackPanel>
+        </Grid>
+    </Border>
+</UserControl>

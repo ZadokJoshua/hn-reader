@@ -1,3 +1,4 @@
+using HNReader.Core.Helpers;
 using HNReader.Core.Interfaces;
 using HNReader.Core.Models;
 using LiteDB;
@@ -72,6 +73,153 @@ public class FavoritesService : IFavoritesService, IDisposable
             .Select(s => s.Id)
             .ToList();
         return Task.FromResult(ids);
+    }
+
+    public async Task<int> ExportToFileAsync(string filePath)
+    {
+        if (string.IsNullOrWhiteSpace(filePath))
+        {
+            throw new ArgumentException("File path cannot be null or empty", nameof(filePath));
+        }
+
+        var stories = await GetAllAsync().ConfigureAwait(false);
+
+        // Strip runtime-only fields so the file is portable
+        var exportable = stories.Select(CloneForExport).ToList();
+        var json = System.Text.Json.JsonSerializer.Serialize(exportable, CoreHelper.JsonSerializerOptions);
+
+        var directory = Path.GetDirectoryName(filePath);
+        if (!string.IsNullOrEmpty(directory))
+        {
+            Directory.CreateDirectory(directory);
+        }
+
+        // Temp file + move: a failure part-way never leaves a truncated export in place of a good one.
+        var tempPath = filePath + ".tmp";
+        try
+        {
+            await File.WriteAllTextAsync(tempPath, json).ConfigureAwait(false);
+            File.Move(tempPath, filePath, overwrite: true);
+        }
+        catch
+        {
+            try { File.Delete(tempPath); } catch { /* best effort */ }
+            throw;
+        }
+        return exportable.Count;
+    }
+
+    /// <summary>Largest file we will try to parse; a real export is well under a few MB.</summary>
+    private const long MaxImportBytes = 20L * 1024 * 1024;
+
+    public async Task<int> ImportFromFileAsync(string filePath)
+        => (await ImportAsync(filePath).ConfigureAwait(false)).Total;
+
+    public async Task<FavoritesImportResult> ImportAsync(string filePath)
+    {
+        if (string.IsNullOrWhiteSpace(filePath))
+        {
+            throw new ArgumentException("File path cannot be null or empty", nameof(filePath));
+        }
+
+        if (!File.Exists(filePath))
+        {
+            throw new FileNotFoundException("Import file not found.", filePath);
+        }
+
+        if (new FileInfo(filePath).Length > MaxImportBytes)
+        {
+            throw new FavoritesImportException(FavoritesImportFailure.FileTooLarge);
+        }
+
+        var json = await File.ReadAllTextAsync(filePath).ConfigureAwait(false);
+        if (string.IsNullOrWhiteSpace(json))
+        {
+            throw new FavoritesImportException(FavoritesImportFailure.EmptyFile);
+        }
+
+        System.Text.Json.JsonDocument document;
+        try
+        {
+            document = System.Text.Json.JsonDocument.Parse(json);
+        }
+        catch (System.Text.Json.JsonException ex)
+        {
+            throw new FavoritesImportException(FavoritesImportFailure.NotFavouritesFile, ex);
+        }
+
+        var stories = new List<Story>();
+        var skipped = 0;
+        using (document)
+        {
+            // An export is a top-level array. Anything else is some other JSON file.
+            if (document.RootElement.ValueKind != System.Text.Json.JsonValueKind.Array)
+            {
+                throw new FavoritesImportException(FavoritesImportFailure.NotFavouritesFile);
+            }
+
+            // Parse entry by entry so one malformed entry skips itself, not the whole file.
+            foreach (var element in document.RootElement.EnumerateArray())
+            {
+                try
+                {
+                    var story = System.Text.Json.JsonSerializer.Deserialize<Story>(element);
+                    if (story is null || story.Id == 0) { skipped++; continue; }
+                    stories.Add(story);
+                }
+                catch (System.Text.Json.JsonException)
+                {
+                    skipped++;
+                }
+            }
+        }
+
+        if (stories.Count == 0)
+        {
+            throw new FavoritesImportException(FavoritesImportFailure.NothingValid);
+        }
+
+        var added = 0;
+        var updated = 0;
+
+        // One transaction, so a failure part-way leaves the existing favourites untouched.
+        _database.BeginTrans();
+        try
+        {
+            foreach (var story in stories)
+            {
+                if (_collection.Upsert(story)) added++; else updated++;
+            }
+            _database.Commit();
+        }
+        catch
+        {
+            _database.Rollback();
+            throw;
+        }
+
+        OnFavoritesChanged();
+        return new FavoritesImportResult(added, updated, skipped);
+    }
+
+    private static Story CloneForExport(Story story)
+    {
+        // Don't carry transient state like IsFavorite into the exported file.
+        return new Story
+        {
+            Id = story.Id,
+            Deleted = story.Deleted,
+            Type = story.Type,
+            By = story.By,
+            Time = story.Time,
+            Dead = story.Dead,
+            Title = story.Title,
+            Url = story.Url,
+            Text = story.Text,
+            Score = story.Score,
+            Kids = story.Kids,
+            Descendants = story.Descendants
+        };
     }
 
     private void OnFavoritesChanged() => FavoritesChanged?.Invoke(this, EventArgs.Empty);

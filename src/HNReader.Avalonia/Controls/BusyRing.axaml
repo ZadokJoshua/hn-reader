@@ -1,0 +1,38 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             x:Class="HNReader.Avalonia.Controls.BusyRing">
+
+    <UserControl.Styles>
+        <!-- The animation is attached to a class rather than left running, and
+             the code-behind adds the class only while the ring is active, visible
+             and in the tree. Several of these live in list footers that are
+             collapsed most of the time, and an infinite animation on a hidden
+             control still costs frames.
+
+             RotateTransform.Angle, not RenderTransform: Avalonia has no keyframe
+             animator registered for ITransform, so animating RenderTransform
+             directly throws at runtime. -->
+        <Style Selector="Arc.spinning">
+            <Style.Animations>
+                <Animation Duration="0:0:1.1" IterationCount="Infinite" Easing="LinearEasing">
+                    <KeyFrame Cue="0%">
+                        <Setter Property="RotateTransform.Angle" Value="0" />
+                    </KeyFrame>
+                    <KeyFrame Cue="100%">
+                        <Setter Property="RotateTransform.Angle" Value="360" />
+                    </KeyFrame>
+                </Animation>
+            </Style.Animations>
+        </Style>
+    </UserControl.Styles>
+
+    <!-- A single open arc. The gap is what reads as motion: a full circle
+         rotating looks static. RenderTransformOrigin must be the centre or the
+         arc orbits instead of spinning in place. -->
+    <Arc x:Name="PART_Arc"
+         StartAngle="0"
+         SweepAngle="290"
+         StrokeLineCap="Round"
+         Stroke="{DynamicResource HnAccentBrush}"
+         RenderTransformOrigin="50%,50%" />
+</UserControl>

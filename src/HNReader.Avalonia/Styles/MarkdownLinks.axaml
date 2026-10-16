@@ -1,0 +1,18 @@
+<Styles xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:ctxt="using:ColorTextBlock.Avalonia">
+
+    <!-- Markdown.Avalonia renders a link as a ColorTextBlock CHyperlink, which is a
+         StyledElement and so a normal style target. Left alone it inherits the body
+         foreground and reads as prose, which is what made URLs in comments invisible.
+
+         Foreground and IsUnderline come from CInline; HoverForeground is CHyperlink's
+         own, and is used instead of a :pointerover selector because a CInline is not a
+         Visual and does not carry the pointer pseudo-classes. -->
+    <Style Selector="ctxt|CHyperlink">
+        <Setter Property="Foreground" Value="{DynamicResource HnLinkBrush}" />
+        <Setter Property="HoverForeground" Value="{DynamicResource HnLinkHoverBrush}" />
+        <Setter Property="IsUnderline" Value="True" />
+    </Style>
+
+</Styles>

@@ -2,7 +2,7 @@ using HNReader.Core.Constants;
 using HNReader.Core.Enums;
 using HNReader.Core.Helpers;
 using HNReader.Core.Interfaces;
-using HNReader.Core.Models;
+using HNReader.Core.Services.Logging;
 using System.Text.Json;
 
 namespace HNReader.Core.Services;
@@ -10,15 +10,15 @@ namespace HNReader.Core.Services;
 public class SettingsService : ISettingsService
 {
     private readonly string _settingsFilePath;
+    private readonly ILogger? _logger;
     private SettingsData _settings;
 
     public event EventHandler<AppTheme>? ThemeChanged;
-    public event EventHandler<string?>? VaultChanged;
-    public event EventHandler<List<Interest>>? UserInterestsChanged;
 
-    public SettingsService(string settingsDirectory)
+    public SettingsService(string settingsDirectory, ILogger? logger = null)
     {
         _settingsFilePath = Path.Combine(settingsDirectory, AppFileNames.SETTINGS_FILE_NAME);
+        _logger = logger;
         _settings = new SettingsData();
         Load();
     }
@@ -37,93 +37,37 @@ public class SettingsService : ISettingsService
         }
     }
 
-    public int StoryLimit
+    public bool ConfirmCommentLinks
     {
-        get => _settings.StoryLimit;
+        get => _settings.ConfirmCommentLinks;
         set
         {
-            var clampedValue = Math.Clamp(value, 10, 100);
-            if (_settings.StoryLimit != clampedValue)
+            if (_settings.ConfirmCommentLinks != value)
             {
-                _settings.StoryLimit = clampedValue;
+                _settings.ConfirmCommentLinks = value;
                 Save();
             }
         }
     }
-
-    public List<Interest> UserInterests
-    {
-        get => _settings.UserInterests;
-        set
-        {
-            _settings.UserInterests = value;
-            Save();
-            UserInterestsChanged?.Invoke(this, value);
-        }
-    }
-
-    public int MaxStoriesPerDigestGroup
-    {
-        get => _settings.MaxStoriesPerDigestGroup;
-        set
-        {
-            var clampedValue = Math.Clamp(value, 1, 30);
-            if (_settings.MaxStoriesPerDigestGroup != clampedValue)
-            {
-                _settings.MaxStoriesPerDigestGroup = clampedValue;
-                Save();
-            }
-        }
-    }
-
-    public string CopilotModel
-    {
-        get => _settings.CopilotModel;
-        set
-        {
-            if (string.IsNullOrWhiteSpace(value))
-            {
-                return;
-            }
-
-            if (!string.Equals(_settings.CopilotModel, value, StringComparison.Ordinal))
-            {
-                _settings.CopilotModel = value;
-                Save();
-            }
-        }
-    }
-
-    public string? VaultPath
-    {
-        get => _settings.VaultPath;
-        set
-        {
-            if (_settings.VaultPath != value)
-            {
-                _settings.VaultPath = value;
-                Save();
-                VaultChanged?.Invoke(this, value);
-            }
-        }
-    }
-
-    public string? VaultName => string.IsNullOrEmpty(VaultPath) 
-        ? null 
-        : Path.GetFileName(VaultPath);
-
-    public bool HasVault => !string.IsNullOrEmpty(VaultPath) && Directory.Exists(VaultPath);
 
     public void Save()
     {
         try
         {
             var json = JsonSerializer.Serialize(_settings, CoreHelper.JsonSerializerOptions);
-            File.WriteAllText(_settingsFilePath, json);
+
+            // Write to a sibling temp file and swap it in, so a crash or power loss
+            // mid-write cannot leave a truncated settings.json (which Load would
+            // then discard, silently resetting the user's preferences).
+            Directory.CreateDirectory(Path.GetDirectoryName(_settingsFilePath)!);
+            var tempPath = _settingsFilePath + ".tmp";
+            File.WriteAllText(tempPath, json);
+            File.Move(tempPath, _settingsFilePath, overwrite: true);
+            _logger?.LogDebug("Settings", "settings saved", context: null);
         }
         catch (Exception ex)
         {
-            System.Diagnostics.Debug.WriteLine($"Error saving settings: {ex.Message}");
+            _logger?.LogWarning("Settings", "failed to save settings", ex);
         }
     }
 
@@ -135,32 +79,28 @@ public class SettingsService : ISettingsService
             {
                 var json = File.ReadAllText(_settingsFilePath);
                 _settings = JsonSerializer.Deserialize<SettingsData>(json) ?? new SettingsData();
+
+                // A hand-edited or newer-version file can hold a number that is not
+                // a member of the enum; fall back rather than carry it into the UI.
+                if (!Enum.IsDefined(_settings.Theme))
+                {
+                    _logger?.LogWarning("Settings", "unknown theme value; using default", context: null);
+                    _settings.Theme = AppTheme.Auto;
+                }
             }
         }
         catch (Exception ex)
         {
-            System.Diagnostics.Debug.WriteLine($"Error loading settings: {ex.Message}");
+            _logger?.LogWarning("Settings", "failed to load settings; using defaults", ex);
             _settings = new SettingsData();
         }
-    }
-
-    public string GetKnowledgeBasePath(KnowledgeBaseFolders folder)
-    {
-        if (!HasVault) throw new InvalidOperationException("Vault is not set.");
-
-        var folderName = folder.GetDescription();
-        var knowledgeBasePath = Path.Combine(VaultPath!, AppFolderNames.KNOWLEDGE_BASE_FOLDER, folderName);
-        Directory.CreateDirectory(knowledgeBasePath);
-        return knowledgeBasePath;
     }
 
     private class SettingsData
     {
         public AppTheme Theme { get; set; } = AppTheme.Auto;
-        public int StoryLimit { get; set; } = 20;
-        public List<Interest> UserInterests { get; set; } = [];
-        public string? VaultPath { get; set; }
-        public int MaxStoriesPerDigestGroup { get; set; } = 5;
-        public string CopilotModel { get; set; } = "claude-sonnet-4.5";
+
+        // Defaults to true so a settings file written before this existed still prompts.
+        public bool ConfirmCommentLinks { get; set; } = true;
     }
 }

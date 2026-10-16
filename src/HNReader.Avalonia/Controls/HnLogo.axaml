@@ -1,0 +1,168 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             x:Class="HNReader.Avalonia.Controls.HnLogo">
+
+    <UserControl.Styles>
+        <!-- The body lines sweep in one after another and loop, so a wait reads as a
+             page being set rather than a spinner turning.
+
+             ScaleTransform.ScaleX, not RenderTransform: Avalonia registers no keyframe
+             animator for ITransform, so animating RenderTransform directly throws at
+             runtime. Same idiom BusyRing uses for RotateTransform.Angle.
+
+             The animations hang off a class that the code-behind adds only while the
+             logo is animating, visible and in the tree - several of these sit in
+             collapsed footers, and an infinite animation on a hidden control still
+             costs frames. -->
+
+        <Style Selector="Canvas.filling > Rectangle.line">
+            <Style.Animations>
+                <Animation Duration="0:0:1.6" IterationCount="Infinite" Easing="CubicEaseInOut">
+                    <KeyFrame Cue="0%">
+                        <Setter Property="ScaleTransform.ScaleX" Value="0.08" />
+                        <Setter Property="Opacity" Value="0.3" />
+                    </KeyFrame>
+                    <KeyFrame Cue="30%">
+                        <Setter Property="ScaleTransform.ScaleX" Value="1" />
+                        <Setter Property="Opacity" Value="1" />
+                    </KeyFrame>
+                    <KeyFrame Cue="70%">
+                        <Setter Property="ScaleTransform.ScaleX" Value="1" />
+                        <Setter Property="Opacity" Value="1" />
+                    </KeyFrame>
+                    <KeyFrame Cue="100%">
+                        <Setter Property="ScaleTransform.ScaleX" Value="0.08" />
+                        <Setter Property="Opacity" Value="0.3" />
+                    </KeyFrame>
+                </Animation>
+            </Style.Animations>
+        </Style>
+
+        <!-- The stagger. Each line runs its own infinite timeline, so a one-time Delay
+             offsets it permanently rather than only on the first pass. -->
+        <Style Selector="Canvas.filling > Rectangle#PART_Line2">
+            <Style.Animations>
+                <Animation Duration="0:0:1.6" Delay="0:0:0.13" IterationCount="Infinite" Easing="CubicEaseInOut">
+                    <KeyFrame Cue="0%">
+                        <Setter Property="ScaleTransform.ScaleX" Value="0.08" />
+                        <Setter Property="Opacity" Value="0.3" />
+                    </KeyFrame>
+                    <KeyFrame Cue="30%">
+                        <Setter Property="ScaleTransform.ScaleX" Value="1" />
+                        <Setter Property="Opacity" Value="1" />
+                    </KeyFrame>
+                    <KeyFrame Cue="70%">
+                        <Setter Property="ScaleTransform.ScaleX" Value="1" />
+                        <Setter Property="Opacity" Value="1" />
+                    </KeyFrame>
+                    <KeyFrame Cue="100%">
+                        <Setter Property="ScaleTransform.ScaleX" Value="0.08" />
+                        <Setter Property="Opacity" Value="0.3" />
+                    </KeyFrame>
+                </Animation>
+            </Style.Animations>
+        </Style>
+
+        <Style Selector="Canvas.filling > Rectangle#PART_Line3">
+            <Style.Animations>
+                <Animation Duration="0:0:1.6" Delay="0:0:0.26" IterationCount="Infinite" Easing="CubicEaseInOut">
+                    <KeyFrame Cue="0%">
+                        <Setter Property="ScaleTransform.ScaleX" Value="0.08" />
+                        <Setter Property="Opacity" Value="0.3" />
+                    </KeyFrame>
+                    <KeyFrame Cue="30%">
+                        <Setter Property="ScaleTransform.ScaleX" Value="1" />
+                        <Setter Property="Opacity" Value="1" />
+                    </KeyFrame>
+                    <KeyFrame Cue="70%">
+                        <Setter Property="ScaleTransform.ScaleX" Value="1" />
+                        <Setter Property="Opacity" Value="1" />
+                    </KeyFrame>
+                    <KeyFrame Cue="100%">
+                        <Setter Property="ScaleTransform.ScaleX" Value="0.08" />
+                        <Setter Property="Opacity" Value="0.3" />
+                    </KeyFrame>
+                </Animation>
+            </Style.Animations>
+        </Style>
+
+        <Style Selector="Canvas.filling > Rectangle#PART_Line4">
+            <Style.Animations>
+                <Animation Duration="0:0:1.6" Delay="0:0:0.39" IterationCount="Infinite" Easing="CubicEaseInOut">
+                    <KeyFrame Cue="0%">
+                        <Setter Property="ScaleTransform.ScaleX" Value="0.08" />
+                        <Setter Property="Opacity" Value="0.3" />
+                    </KeyFrame>
+                    <KeyFrame Cue="30%">
+                        <Setter Property="ScaleTransform.ScaleX" Value="1" />
+                        <Setter Property="Opacity" Value="1" />
+                    </KeyFrame>
+                    <KeyFrame Cue="70%">
+                        <Setter Property="ScaleTransform.ScaleX" Value="1" />
+                        <Setter Property="Opacity" Value="1" />
+                    </KeyFrame>
+                    <KeyFrame Cue="100%">
+                        <Setter Property="ScaleTransform.ScaleX" Value="0.08" />
+                        <Setter Property="Opacity" Value="0.3" />
+                    </KeyFrame>
+                </Animation>
+            </Style.Animations>
+        </Style>
+    </UserControl.Styles>
+
+    <!-- One definition at a fixed 64x64 design size, scaled by the Viewbox to whatever
+         the call site asks for. Colours come from the theme tokens rather than being
+         fixed, so the page stays readable in both light and dark. -->
+    <Viewbox Stretch="Uniform">
+        <Canvas x:Name="PART_Page" Width="64" Height="64">
+
+            <!-- The page -->
+            <Rectangle Canvas.Left="9" Canvas.Top="6"
+                       Width="46" Height="52"
+                       RadiusX="5" RadiusY="5"
+                       Fill="{DynamicResource HnCardBackgroundBrush}"
+                       Stroke="{DynamicResource HnCardStrokeBrush}"
+                       StrokeThickness="2.5" />
+
+            <!-- Masthead. A Border rather than a Rectangle plus a positioned TextBlock,
+                 so the wordmark centres itself instead of being nudged by hand. -->
+            <Border Canvas.Left="15" Canvas.Top="12"
+                    Width="34" Height="13"
+                    CornerRadius="2.5"
+                    Background="{DynamicResource HnAccentBrush}">
+                <TextBlock Text="HN"
+                           FontSize="9"
+                           FontWeight="Bold"
+                           Foreground="White"
+                           HorizontalAlignment="Center"
+                           VerticalAlignment="Center" />
+            </Border>
+
+            <!-- Body lines. RenderTransformOrigin is the left edge so they grow
+                 left-to-right like text being set, not outward from the middle. -->
+            <Rectangle x:Name="PART_Line1" Classes="line"
+                       Canvas.Left="15" Canvas.Top="31"
+                       Width="34" Height="4" RadiusX="2" RadiusY="2"
+                       RenderTransformOrigin="0%,50%"
+                       Fill="{DynamicResource HnTextTertiaryBrush}" />
+
+            <Rectangle x:Name="PART_Line2" Classes="line"
+                       Canvas.Left="15" Canvas.Top="38"
+                       Width="28" Height="4" RadiusX="2" RadiusY="2"
+                       RenderTransformOrigin="0%,50%"
+                       Fill="{DynamicResource HnTextTertiaryBrush}" />
+
+            <Rectangle x:Name="PART_Line3" Classes="line"
+                       Canvas.Left="15" Canvas.Top="45"
+                       Width="32" Height="4" RadiusX="2" RadiusY="2"
+                       RenderTransformOrigin="0%,50%"
+                       Fill="{DynamicResource HnTextTertiaryBrush}" />
+
+            <Rectangle x:Name="PART_Line4" Classes="line"
+                       Canvas.Left="15" Canvas.Top="52"
+                       Width="20" Height="4" RadiusX="2" RadiusY="2"
+                       RenderTransformOrigin="0%,50%"
+                       Fill="{DynamicResource HnTextTertiaryBrush}" />
+        </Canvas>
+    </Viewbox>
+</UserControl>

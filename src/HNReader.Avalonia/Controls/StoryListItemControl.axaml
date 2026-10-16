@@ -1,0 +1,89 @@
+﻿<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:c="using:HNReader.Avalonia.Controls"
+             xmlns:asyncImageLoader="clr-namespace:AsyncImageLoader;assembly=AsyncImageLoader.Avalonia"
+             x:Class="HNReader.Avalonia.Controls.StoryListItemControl">
+
+    <Grid x:Name="RootGrid" Margin="12,10" ColumnDefinitions="Auto,*,Auto" Opacity="0">
+        <Grid.Transitions>
+            <Transitions>
+                <DoubleTransition Property="Opacity" Duration="0:0:0.2" Easing="CubicEaseOut" />
+            </Transitions>
+        </Grid.Transitions>
+
+        <!-- Score Badge -->
+        <Border Grid.Column="0"
+                Classes="ScoreBadge"
+                VerticalAlignment="Center"
+                MinWidth="50"
+                Margin="0,0,12,0">
+            <StackPanel HorizontalAlignment="Center" Spacing="2">
+                <c:IconGlyph Glyph="{StaticResource IconUpvote}" FontSize="14" Foreground="{DynamicResource HnAccentBrush}" HorizontalAlignment="Center" />
+                <TextBlock Text="{Binding Score, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                           FontWeight="SemiBold"
+                           FontSize="13"
+                           HorizontalAlignment="Center" />
+            </StackPanel>
+        </Border>
+
+        <!-- Content -->
+        <StackPanel Grid.Column="1" Spacing="6" VerticalAlignment="Center">
+            <TextBlock FontSize="14"
+                       FontWeight="SemiBold"
+                       MaxLines="2"
+                       Text="{Binding Title, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                       TextWrapping="Wrap"
+                       TextTrimming="CharacterEllipsis" />
+
+            <StackPanel Orientation="Horizontal" Spacing="6"
+                        IsVisible="{Binding DisplayDomain, RelativeSource={RelativeSource AncestorType=UserControl}, Converter={StaticResource BoolToVisibilityConverter}}">
+                <!-- Globe underneath, favicon on top. The slot is never empty: the globe
+                     shows while the icon is still being fetched and stays for good when the
+                     site has none, so nothing reflows when an icon arrives late. -->
+                <Panel Width="14" Height="14">
+                    <c:IconGlyph Glyph="{StaticResource IconGlobe}"
+                                 FontSize="13"
+                                 Foreground="{DynamicResource HnTextSecondaryBrush}"
+                                 IsVisible="{Binding #FaviconImage.Source, Converter={StaticResource IsNullConverter}}" />
+                    <Image x:Name="FaviconImage" Width="14" Height="14"
+                           asyncImageLoader:ImageLoader.Source="{Binding FaviconHost, RelativeSource={RelativeSource AncestorType=UserControl}, Converter={StaticResource FaviconHostToSourceConverter}}" />
+                </Panel>
+                <TextBlock FontSize="12"
+                           Classes="MetaText"
+                           MaxWidth="220"
+                           TextTrimming="CharacterEllipsis"
+                           Text="{Binding DisplayDomain, RelativeSource={RelativeSource AncestorType=UserControl}}" />
+            </StackPanel>
+
+            <StackPanel Orientation="Horizontal" Spacing="16">
+                <StackPanel Orientation="Horizontal" Spacing="4">
+                    <c:IconGlyph Glyph="{StaticResource IconComment}" FontSize="12" Classes="MetaIcon" />
+                    <TextBlock FontSize="12" Classes="MetaText"
+                               Text="{Binding Descendants, RelativeSource={RelativeSource AncestorType=UserControl}}" />
+                </StackPanel>
+
+                <StackPanel Orientation="Horizontal" Spacing="4">
+                    <c:IconGlyph Glyph="{StaticResource IconClock}" FontSize="12" Classes="MetaIcon" />
+                    <TextBlock FontSize="12" Classes="MetaText"
+                               Text="{Binding TimeAgo, RelativeSource={RelativeSource AncestorType=UserControl}}" />
+                </StackPanel>
+
+                <StackPanel Orientation="Horizontal" Spacing="4">
+                    <c:IconGlyph Glyph="{StaticResource IconUser}" FontSize="12" Classes="MetaIcon" />
+                    <TextBlock FontSize="12" Classes="MetaText"
+                               Text="{Binding By, RelativeSource={RelativeSource AncestorType=UserControl}}" />
+                </StackPanel>
+            </StackPanel>
+        </StackPanel>
+
+        <!-- Favorite Indicator -->
+        <c:IconGlyph Grid.Column="2"
+                       Glyph="{StaticResource IconStar}"
+                       FontSize="16"
+                       Foreground="{DynamicResource HnAccentBrush}"
+                       VerticalAlignment="Top"
+                       Margin="8,2,0,0"
+                       ToolTip.Tip="Favorited"
+                       IsVisible="{Binding IsFavorite, RelativeSource={RelativeSource AncestorType=UserControl}}" />
+    </Grid>
+</UserControl>

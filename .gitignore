@@ -362,3 +362,9 @@ MigrationBackup/
 # Fody - auto-generated XML schema
 FodyWeavers.xsd
 /BenchmarkSuite1/BenchmarkSuite1.csproj
+
+# HNReader.Server runtime data (Hangfire SQLite store, digest LiteDB file)
+HNReader.Server/data/
+
+# Favicon disk cache written by AsyncImageLoader at runtime
+**/Cache/Images/

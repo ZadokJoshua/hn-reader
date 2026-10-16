@@ -1,0 +1,525 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:controls="using:HNReader.Avalonia.Controls"
+             xmlns:models="using:HNReader.Core.Models"
+             xmlns:asyncImageLoader="clr-namespace:AsyncImageLoader;assembly=AsyncImageLoader.Avalonia"
+             x:Class="HNReader.Avalonia.Controls.StoriesPageControl">
+
+    <UserControl.Resources>
+        <!-- Flat, not recursive. The list is flattened in code-behind so the
+             ListBox virtualizes every comment rather than only the roots, which
+             is what stopped the scrollbar guessing wildly on long threads. Depth
+             is therefore expressed by the rail column, not by nesting. -->
+        <DataTemplate x:Key="WebCommentTemplate" x:DataType="models:WebCommentNode">
+            <Grid ColumnDefinitions="Auto,*"
+                  Margin="{Binding Depth, Converter={StaticResource DepthToMarginConverter}}">
+
+                <!-- Rails are drawn, not built from controls - see CommentRails.
+                     Stretched to the full row height and with no gap between rows, so
+                     the per-row segments read as the continuous lines the nested
+                     layout used to draw. -->
+                <controls:CommentRails Grid.Column="0"
+                                       Depth="{Binding Depth}"
+                                       RailBrush="{DynamicResource HnCardStrokeBrush}"
+                                       Opacity="0.85"
+                                       VerticalAlignment="Stretch" />
+
+                <Border Grid.Column="1"
+                        Classes="CommentCardBorderStyle"
+                        Margin="4,6,0,2"
+                        BorderBrush="{Binding IsHighlighted, Converter={StaticResource HighlightBorderBrushConverter}}"
+                        BorderThickness="{Binding IsHighlighted, Converter={StaticResource HighlightBorderThicknessConverter}}"
+                        Tag="{Binding CommentId}">
+                    <StackPanel Spacing="8">
+                        <Grid ColumnDefinitions="*,Auto">
+                            <!-- One TextBlock with Runs, not a horizontal StackPanel:
+                                 a StackPanel measures at infinite width and never
+                                 shrinks, so in a narrow pane the byline ran under the
+                                 collapse button. Runs keep the three parts on one
+                                 line and let the whole byline ellipsize as a unit,
+                                 which a Grid cannot do without giving the author a
+                                 star column - and that pushes the timestamp away to
+                                 the far edge at normal widths. -->
+                            <TextBlock FontSize="13"
+                                       VerticalAlignment="Center"
+                                       TextWrapping="NoWrap"
+                                       TextTrimming="CharacterEllipsis">
+                                <Run Text="{Binding By}"
+                                     FontWeight="SemiBold"
+                                     Foreground="{DynamicResource HnAccentTextBrush}" />
+                                <Run Text=" • " Foreground="{DynamicResource HnTextTertiaryBrush}" />
+                                <Run Text="{Binding TimeAgo}"
+                                     FontSize="12"
+                                     Foreground="{DynamicResource HnTextSecondaryBrush}" />
+                            </TextBlock>
+                            <Button Grid.Column="1"
+                                    Tag="{Binding}"
+                                    Click="OnToggleWebCommentCollapseClicked"
+                                    Classes="CollapseButtonStyle"
+                                    ToolTip.Tip="Collapse/Expand">
+                                <TextBlock Text="{Binding IsCollapsed, Converter={StaticResource BoolToCollapseTextConverter}}"
+                                           FontSize="11"
+                                           Foreground="{DynamicResource HnTextSecondaryBrush}" />
+                            </Button>
+                        </Grid>
+
+                        <!-- MarkdownBlock, not MarkdownScrollViewer: a comment does not
+                             scroll on its own, and the scroll viewer the latter builds
+                             costs ~9 controls per comment for nothing. -->
+                        <controls:MarkdownBlock Markdown="{Binding MdText, Mode=OneWay}"
+                                                IsVisible="{Binding IsCollapsed, Converter={StaticResource BoolToVisibilityConverter}, ConverterParameter=Inverse}" />
+                    </StackPanel>
+                </Border>
+            </Grid>
+        </DataTemplate>
+
+    </UserControl.Resources>
+
+    <Grid Background="{DynamicResource HnPageBackgroundBrush}" ColumnDefinitions="400,*">
+
+        <!-- Stories List Panel -->
+        <Border Grid.Column="0"
+                BorderBrush="{DynamicResource HnDividerBrush}"
+                BorderThickness="0,0,1,0">
+        <Grid RowDefinitions="Auto,*">
+
+            <!-- Header -->
+            <Border Grid.Row="0" Padding="20,16" Background="{DynamicResource HnContentBackgroundBrush}">
+                <StackPanel Spacing="12">
+                    <TextBlock FontSize="20"
+                               FontWeight="SemiBold"
+                               Text="{Binding PageTitle, FallbackValue='Stories'}" />
+                    <!-- Only on pages that opt in. A feed search filters just the stories
+                         fetched so far, so "no matches" there can mean "not in the first
+                         thirty" - see PageViewModel.IsSearchEnabled. -->
+                    <Grid Margin="0,4,0,0" ColumnDefinitions="*,Auto"
+                          IsVisible="{Binding IsSearchEnabled}">
+                        <TextBox x:Name="SearchBox"
+                                 Grid.Column="0"
+                                 Watermark="Search stories..."
+                                 Text="{Binding SearchText, Mode=TwoWay}"
+                                 IsEnabled="{Binding HasStories}" />
+                        <Button Grid.Column="0"
+                                HorizontalAlignment="Right"
+                                VerticalAlignment="Center"
+                                Margin="0,0,6,0"
+                                Padding="6"
+                                Background="Transparent"
+                                BorderThickness="0"
+                                Command="{Binding ClearSearchCommand}"
+                                ToolTip.Tip="Clear search"
+                                IsVisible="{Binding SearchText, Converter={StaticResource BoolToVisibilityConverter}}">
+                            <controls:IconGlyph Glyph="{StaticResource IconDismiss}" FontSize="12" Foreground="{DynamicResource HnTextSecondaryBrush}" />
+                        </Button>
+                    </Grid>
+
+                    <!-- Some items failed but others loaded (e.g. one favourite unreachable). -->
+                    <TextBlock Text="{Binding PartialLoadMessage}"
+                               TextWrapping="Wrap"
+                               FontSize="12"
+                               Foreground="{DynamicResource HnTextSecondaryBrush}"
+                               IsVisible="{Binding PartialLoadMessage, Converter={StaticResource BoolToVisibilityConverter}}" />
+                </StackPanel>
+            </Border>
+
+            <!-- Stories List -->
+            <Grid Grid.Row="1" RowDefinitions="*,Auto">
+                <ListBox x:Name="StoriesList"
+                         Classes="rowList"
+                         Grid.Row="0"
+                         ItemsSource="{Binding FilteredStories}"
+                         SelectedItem="{Binding SelectedStory, Mode=TwoWay}"
+                         SelectionMode="Single"
+                         Padding="8"
+                         IsVisible="{Binding IsLoading, Converter={StaticResource BoolToVisibilityConverter}, ConverterParameter=Inverse}">
+                    <ListBox.ItemTemplate>
+                        <DataTemplate x:DataType="models:Story">
+                            <controls:StoryListItemControl
+                                Title="{Binding Title}"
+                                Score="{Binding DisplayScore}"
+                                Descendants="{Binding CommentCount}"
+                                TimeAgo="{Binding TimeAgo}"
+                                By="{Binding By}"
+                                IsFavorite="{Binding IsFavorite}"
+                                DisplayDomain="{Binding DisplayDomain}"
+                                FaviconHost="{Binding FaviconHost}" />
+                        </DataTemplate>
+                    </ListBox.ItemTemplate>
+                </ListBox>
+
+                <!-- The margin belongs on the children, not on this Grid. With no
+                     search active the list auto-loads as you scroll near the bottom
+                     (see OnStoriesListScrollChanged), so all three children are hidden
+                     for almost the whole life of a feed - but ShowLoadMoreFooter is
+                     still true, because it includes HasMoreItems for the sake of a
+                     manual button that only appears while searching. A Grid with every
+                     child collapsed has no height, so nothing was drawn, but its own
+                     margin still reserved a 32px band under the last story. Hanging the
+                     margin off each child means the footer occupies space only when it
+                     has something in it. ShowLoadMoreFooter is left alone because the
+                     WinUI shell binds its own footer to it. -->
+                <Grid Grid.Row="1" IsVisible="{Binding ShowLoadMoreFooter, Converter={StaticResource BoolToVisibilityConverter}}">
+                    <Border Classes="CardBorderStyle"
+                            Margin="8,16"
+                            Padding="16,12"
+                            IsVisible="{Binding IsLoadingMore, Converter={StaticResource BoolToVisibilityConverter}}">
+                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Spacing="12">
+                            <!-- Ring, not the logo: this sits inline beside 14px text, and at ~26px the
+                                 logo's wordmark is about four pixels tall - the icon generator drops
+                                 it below 32px for the same reason. Same call as the 12/14px
+                                 small status indicators. -->
+                            <controls:BusyRing Width="20" Height="20" IsActive="{Binding IsLoadingMore}" />
+                            <TextBlock Text="Loading more stories..."
+                                       FontSize="14"
+                                       VerticalAlignment="Center"
+                                       Foreground="{DynamicResource HnTextSecondaryBrush}" />
+                        </StackPanel>
+                    </Border>
+
+                    <!-- Auto-load stops after a failure (see OnStoriesListScrollChanged); this is the
+                         way back. -->
+                    <Border Classes="CardBorderStyle"
+                            Margin="8,16"
+                            Padding="16,12"
+                            IsVisible="{Binding HasLoadMoreError, Converter={StaticResource BoolToVisibilityConverter}}">
+                        <StackPanel Spacing="10" HorizontalAlignment="Center">
+                            <TextBlock Text="{Binding LoadMoreErrorMessage}"
+                                       TextWrapping="Wrap"
+                                       TextAlignment="Center"
+                                       FontSize="13"
+                                       Foreground="{DynamicResource HnTextSecondaryBrush}" />
+                            <Button Content="Try again"
+                                    Command="{Binding LoadMoreStoriesCommand}"
+                                    HorizontalAlignment="Center" />
+                        </StackPanel>
+                    </Border>
+
+                    <StackPanel Spacing="10"
+                                Margin="8,16"
+                                IsVisible="{Binding IsAtEnd, Converter={StaticResource BoolToVisibilityConverter}}">
+                        <Border Background="{DynamicResource HnDividerBrush}" Height="1" HorizontalAlignment="Stretch" Margin="30,0,30,0" />
+                        <TextBlock Text="No more stories" FontSize="12" Foreground="{DynamicResource HnTextSecondaryBrush}" HorizontalAlignment="Center" />
+                    </StackPanel>
+
+                </Grid>
+
+                <Grid Grid.Row="0" IsVisible="{Binding IsLoading, Converter={StaticResource BoolToVisibilityConverter}}">
+                    <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="16">
+                        <controls:HnLogo Width="56" Height="56" IsAnimating="{Binding IsLoading}" />
+                        <TextBlock Text="Loading stories..." FontSize="14" Foreground="{DynamicResource HnTextSecondaryBrush}" />
+                    </StackPanel>
+                </Grid>
+
+                <Grid Grid.Row="0" IsVisible="{Binding HasError, Converter={StaticResource BoolToVisibilityConverter}}">
+                    <Border HorizontalAlignment="Center"
+                            VerticalAlignment="Center"
+                            Classes="CardBorderStyle"
+                            Padding="32"
+                            MaxWidth="320">
+                        <StackPanel Spacing="16" HorizontalAlignment="Center">
+                            <controls:IconGlyph Glyph="{StaticResource IconWarning}" FontSize="48" Foreground="{DynamicResource HnCriticalBrush}" />
+                            <TextBlock Text="{Binding ErrorTitle}" FontSize="16" FontWeight="SemiBold" HorizontalAlignment="Center" />
+                            <TextBlock Text="{Binding ErrorMessage}"
+                                       TextWrapping="Wrap"
+                                       TextAlignment="Center"
+                                       Foreground="{DynamicResource HnTextSecondaryBrush}"
+                                       FontSize="13" />
+                            <Button Content="Try Again" Command="{Binding RetryCommand}" HorizontalAlignment="Center" Classes="accent" />
+                        </StackPanel>
+                    </Border>
+                </Grid>
+
+                <Grid Grid.Row="0" IsVisible="{Binding ShowListEmptyState, Converter={StaticResource BoolToVisibilityConverter}}">
+                    <Border HorizontalAlignment="Center"
+                            VerticalAlignment="Center"
+                            Classes="CardBorderStyle"
+                            Padding="32"
+                            MaxWidth="360">
+                        <StackPanel Spacing="12" HorizontalAlignment="Center">
+                            <TextBlock Text="{Binding EmptyStateTitle}"
+                                       FontSize="18"
+                                       FontWeight="SemiBold"
+                                       HorizontalAlignment="Center"
+                                       TextWrapping="Wrap"
+                                       IsVisible="{Binding EmptyStateTitle, Converter={StaticResource BoolToVisibilityConverter}}" />
+                            <TextBlock Text="{Binding EmptyStateDescription}"
+                                       FontSize="13"
+                                       TextWrapping="Wrap"
+                                       TextAlignment="Center"
+                                       Foreground="{DynamicResource HnTextSecondaryBrush}"
+                                       IsVisible="{Binding EmptyStateDescription, Converter={StaticResource BoolToVisibilityConverter}}" />
+                        </StackPanel>
+                    </Border>
+                </Grid>
+
+                <!-- A search matching nothing used to render as a blank list:
+                     ShowListEmptyState above is hardcoded false for every story
+                     page, so only Favourites ever had an empty state. -->
+                <Grid Grid.Row="0" IsVisible="{Binding ShowSearchEmptyState, Converter={StaticResource BoolToVisibilityConverter}}">
+                    <Border HorizontalAlignment="Center"
+                            VerticalAlignment="Center"
+                            Classes="CardBorderStyle"
+                            Padding="32"
+                            MaxWidth="360">
+                        <StackPanel Spacing="12" HorizontalAlignment="Center">
+                            <controls:IconGlyph Glyph="{StaticResource IconDismiss}"
+                                                FontSize="32"
+                                                Foreground="{DynamicResource HnTextTertiaryBrush}" />
+                            <TextBlock Text="No matching stories"
+                                       FontSize="18"
+                                       FontWeight="SemiBold"
+                                       HorizontalAlignment="Center"
+                                       TextWrapping="Wrap" />
+                        </StackPanel>
+                    </Border>
+                </Grid>
+            </Grid>
+        </Grid>
+        </Border>
+
+        <!-- Detail Panel -->
+        <Grid Grid.Column="1" Background="{DynamicResource HnContentBackgroundBrush}">
+            <StackPanel HorizontalAlignment="Center"
+                        VerticalAlignment="Center"
+                        Spacing="12"
+                        IsVisible="{Binding SelectedStory, Converter={StaticResource BoolToVisibilityConverter}, ConverterParameter=Inverse}">
+                <TextBlock Text="Select a story" FontSize="18" FontWeight="SemiBold" Foreground="{DynamicResource HnTextSecondaryBrush}" HorizontalAlignment="Center" />
+                <TextBlock Text="Choose a story from the list to view its details"
+                           FontSize="13"
+                           Foreground="{DynamicResource HnTextTertiaryBrush}"
+                           HorizontalAlignment="Center" />
+            </StackPanel>
+
+            <!-- One scroller for the whole pane: story card, then comments. The
+                 comments used to scroll inside their own ScrollViewer, which would
+                 nest inside this one - so that scroller is gone rather than nested.
+                 Everything stays rendered, so the extent is the true summed height and
+                 the scrollbar cannot drift, which is the property that keeps scrolling
+                 steady on a long thread.
+
+                 No horizontal Padding here, for the reason repeated below on the
+                 markdown: a ScrollViewer measures content at the full viewport width
+                 but arranges it inset by Padding, and markdown lays out to the wider
+                 DesiredSize, so padding returns as text over the right edge. The inset
+                 is the content's Margin. VerticalScrollBarVisibility is Visible, not
+                 Auto, because an Auto bar is absent for the first measure and takes
+                 ~15px when it appears, and already-laid-out markdown is not re-wrapped
+                 to the narrower arrangement. -->
+            <ScrollViewer IsVisible="{Binding SelectedStory, Converter={StaticResource BoolToVisibilityConverter}}"
+                          VerticalScrollBarVisibility="Visible"
+                          HorizontalScrollBarVisibility="Disabled">
+                <StackPanel Margin="24,20,24,20" Spacing="12">
+
+                    <!-- Story card: meta, then title, then link, then body -->
+                    <Border Classes="CardBorderStyle">
+                        <StackPanel Spacing="16">
+
+                            <!-- Meta above the title, actions right-aligned on the same
+                                 line. The actions live here rather than in the URL row:
+                                 that row is hidden for stories with no URL (Ask HN and
+                                 other text posts) and would take the buttons with it.
+
+                                 A WrapPanel, not a StackPanel: a horizontal StackPanel
+                                 never shrinks below its content and a Grid does not
+                                 clip, so in a narrow window the meta text simply
+                                 carried on underneath the buttons. -->
+                            <Grid ColumnDefinitions="*,Auto">
+                                <WrapPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
+                                    <Border Background="{DynamicResource HnAccentBrush}" CornerRadius="4" Padding="8,4" Margin="0,2,12,2">
+                                        <StackPanel Orientation="Horizontal" Spacing="4">
+                                            <controls:IconGlyph Glyph="{StaticResource IconUpvote}" FontSize="11" Foreground="White" />
+                                            <TextBlock Text="{Binding SelectedStory.DisplayScore}" FontWeight="Bold" Foreground="White" FontSize="12" />
+                                        </StackPanel>
+                                    </Border>
+
+                                    <StackPanel Orientation="Horizontal" Spacing="4" VerticalAlignment="Center" Margin="0,2,12,2">
+                                        <controls:IconGlyph Glyph="{StaticResource IconUser}" Classes="MetaIcon" />
+                                        <TextBlock Text="{Binding SelectedStory.By}" Classes="MetaText" />
+                                    </StackPanel>
+
+                                    <StackPanel Orientation="Horizontal" Spacing="4" VerticalAlignment="Center" Margin="0,2,12,2">
+                                        <controls:IconGlyph Glyph="{StaticResource IconClock}" Classes="MetaIcon" />
+                                        <TextBlock Text="{Binding SelectedStory.TimeAgo}" Classes="MetaText" />
+                                    </StackPanel>
+
+                                    <StackPanel Orientation="Horizontal" Spacing="4" VerticalAlignment="Center" Margin="0,2,0,2">
+                                        <controls:IconGlyph Glyph="{StaticResource IconComment}" Classes="MetaIcon" />
+                                        <TextBlock Classes="MetaText">
+                                            <Run Text="{Binding SelectedStory.CommentCount}" />
+                                            <Run Text="comments" />
+                                        </TextBlock>
+                                    </StackPanel>
+                                </WrapPanel>
+
+                                <StackPanel Grid.Column="1"
+                                            Orientation="Horizontal"
+                                            Spacing="4"
+                                            VerticalAlignment="Center"
+                                            Margin="12,0,0,0">
+                                    <!-- Icon-only, so each tooltip is the sole affordance.
+                                         The favourite tooltip is bound rather than fixed:
+                                         a static "Add to favorites" would be plainly wrong
+                                         once the story is favourited. -->
+                                    <Button Click="OnToggleFavoriteClicked"
+                                            Classes="IconActionButtonStyle"
+                                            Classes.favourited="{Binding IsSelectedStoryFavorite}"
+                                            ToolTip.Tip="{Binding FavoriteButtonText}">
+                                        <controls:IconGlyph Glyph="{StaticResource IconStar}" FontSize="15" />
+                                    </Button>
+                                    <Button Click="OnViewOnHnClicked"
+                                            Classes="IconActionButtonStyle"
+                                            ToolTip.Tip="View on Hacker News">
+                                        <controls:IconGlyph Glyph="{StaticResource IconExternal}" FontSize="15" />
+                                    </Button>
+                                </StackPanel>
+                            </Grid>
+
+                            <!-- No MaxLines or trimming: the pane scrolls now, so a long
+                                 title can use the room instead of being cut. -->
+                            <TextBlock FontSize="22"
+                                       FontWeight="SemiBold"
+                                       Text="{Binding SelectedStory.Title}"
+                                       TextWrapping="Wrap" />
+
+                            <Border Background="{DynamicResource HnPageBackgroundBrush}"
+                                    CornerRadius="6"
+                                    Padding="12,10"
+                                    IsVisible="{Binding SelectedStory.Url, Converter={StaticResource BoolToVisibilityConverter}}">
+                                <Grid ColumnDefinitions="Auto,*">
+                                    <!-- The site's own favicon rather than a link glyph: a
+                                         generic link icon only restates what the row already
+                                         is, while the favicon says which site it goes to,
+                                         and matches how the story list identifies
+                                         destinations.
+
+                                         Fixed-size Panel with a globe underneath, the same
+                                         arrangement as StoryListItemControl and for the same
+                                         reason: the placeholder shows while the icon is
+                                         still being fetched and stays for good when a site
+                                         has none, so nothing reflows when one arrives late. -->
+                                    <Panel Width="16" Height="16" Margin="0,0,10,0" VerticalAlignment="Center">
+                                        <controls:IconGlyph Glyph="{StaticResource IconGlobe}"
+                                                            FontSize="14"
+                                                            Foreground="{DynamicResource HnTextSecondaryBrush}"
+                                                            IsVisible="{Binding #DetailFavicon.Source, Converter={StaticResource IsNullConverter}}" />
+                                        <Image x:Name="DetailFavicon" Width="16" Height="16"
+                                               asyncImageLoader:ImageLoader.Source="{Binding SelectedStory.FaviconHost, Converter={StaticResource FaviconHostToSourceConverter}}" />
+                                    </Panel>
+                                    <Button Grid.Column="1"
+                                            Content="{Binding SelectedStory.Url}"
+                                            Click="OnOpenStoryUrlClicked"
+                                            Classes="hyperlink"
+                                            FontSize="13"
+                                            Padding="0"
+                                            HorizontalAlignment="Left"
+                                            HorizontalContentAlignment="Left"
+                                            ClipToBounds="True"
+                                            VerticalAlignment="Center" />
+                                </Grid>
+                            </Border>
+
+                            <!-- In the card with the title, and uncapped: the pane
+                                 scrolls as a whole, so the body no longer needs a height
+                                 limit or a scroller of its own. MarkdownBlock rather than
+                                 MarkdownScrollViewer for exactly that reason - the latter
+                                 builds a ScrollViewer, Grid, presenter, Canvas and two
+                                 ScrollBars that nothing here would use. -->
+                            <controls:MarkdownBlock Markdown="{Binding SelectedStory.MarkdownText, Mode=OneWay}"
+                                                    IsVisible="{Binding SelectedStory.MarkdownText, Converter={StaticResource BoolToVisibilityConverter}}" />
+                        </StackPanel>
+                    </Border>
+
+                    <!-- Comments card -->
+                    <Border Classes="CardBorderStyle" Padding="0">
+                        <StackPanel>
+
+                            <!-- The title side is a Grid, not a horizontal StackPanel: a
+                                 StackPanel measures its children at infinite width and
+                                 never shrinks, and the surrounding Grid does not clip, so
+                                 in a narrow window the label ran underneath the toggle.
+                                 Here the label's star column gives way and it ellipsizes
+                                 instead, keeping icon and button reachable on one line. -->
+                            <Grid Margin="20,20,20,12" ColumnDefinitions="*,Auto">
+                                <Grid ColumnDefinitions="Auto,*">
+                                    <controls:IconGlyph Grid.Column="0" Glyph="{StaticResource IconComment}" FontSize="18" />
+                                    <TextBlock Grid.Column="1"
+                                               Text="Comments"
+                                               FontSize="16"
+                                               FontWeight="SemiBold"
+                                               VerticalAlignment="Center"
+                                               Margin="10,0"
+                                               TextWrapping="NoWrap"
+                                               TextTrimming="CharacterEllipsis" />
+                                </Grid>
+                                <Button Grid.Column="1"
+                                        Classes="outlined"
+                                        Classes.collapsed="{Binding !AreCommentsVisible}"
+                                        Command="{Binding ToggleCommentsCommand}">
+                                    <StackPanel Orientation="Horizontal" Spacing="8">
+                                        <TextBlock Text="{Binding CommentsButtonText}" VerticalAlignment="Center" />
+                                        <controls:IconGlyph Glyph="{StaticResource IconCaretUp}" FontSize="12" />
+                                    </StackPanel>
+                                </Button>
+                            </Grid>
+
+                            <!-- IsVisible, not a fade to Opacity 0. In a flow layout an
+                                 invisible-but-present thread would leave its whole height
+                                 as blank space under the header, so hiding has to collapse
+                                 it - which is what the caret on the toggle implies anyway. -->
+                            <StackPanel Margin="20,0,20,20"
+                                        IsVisible="{Binding AreCommentsVisible}">
+                                <!-- Deliberately NOT virtualized. A VirtualizingStackPanel
+                                     sizes the extent as (average realized item height x
+                                     item count); comments run from one line to twenty, so
+                                     every newly realized row revises that estimate
+                                     mid-scroll and the scrollbar jerks. Rendering
+                                     everything keeps the extent true and fixed. The price
+                                     is one costly layout per thread and a proportional
+                                     re-layout on resize, which MarkdownBlock and
+                                     CommentRails exist to keep down. -->
+                                <ItemsControl x:Name="CommentsItems"
+                                              ItemTemplate="{StaticResource WebCommentTemplate}" />
+
+                                <StackPanel Spacing="12" Margin="0,24,0,8"
+                                            IsVisible="{Binding ShowCommentsEnd, Converter={StaticResource BoolToVisibilityConverter}}">
+                                    <Border Background="{DynamicResource HnDividerBrush}" Height="1" HorizontalAlignment="Stretch" Margin="40,0,40,0" />
+                                    <TextBlock Text="End of comments" FontSize="12" Foreground="{DynamicResource HnTextSecondaryBrush}" HorizontalAlignment="Center" />
+                                </StackPanel>
+                            </StackPanel>
+
+                            <!-- Exactly one of these is ever visible, so they share a slot. -->
+                            <Panel>
+                                <StackPanel Margin="20,0,20,28"
+                                            HorizontalAlignment="Center" Spacing="12"
+                                            IsVisible="{Binding HasCommentsError, Converter={StaticResource BoolToVisibilityConverter}}">
+                                    <controls:IconGlyph Glyph="{StaticResource IconWarning}" FontSize="32" Foreground="{DynamicResource HnCriticalBrush}" />
+                                    <TextBlock Text="{Binding CommentsErrorMessage}"
+                                               FontSize="14"
+                                               TextWrapping="Wrap"
+                                               TextAlignment="Center"
+                                               MaxWidth="360"
+                                               Foreground="{DynamicResource HnTextSecondaryBrush}" />
+                                    <Button Content="Try Again" Command="{Binding ToggleCommentsCommand}" Classes="accent" HorizontalAlignment="Center" />
+                                </StackPanel>
+
+                                <StackPanel Margin="20,0,20,28"
+                                            HorizontalAlignment="Center" Spacing="8"
+                                            IsVisible="{Binding ShowNoCommentsMessage, Converter={StaticResource BoolToVisibilityConverter}}">
+                                    <controls:IconGlyph Glyph="{StaticResource IconComment}" FontSize="32" Foreground="{DynamicResource HnTextSecondaryBrush}" />
+                                    <TextBlock Text="No comments yet" FontSize="14" Foreground="{DynamicResource HnTextSecondaryBrush}" HorizontalAlignment="Center" />
+                                </StackPanel>
+
+                                <StackPanel Margin="20,0,20,28"
+                                            HorizontalAlignment="Center" Spacing="12"
+                                            IsVisible="{Binding IsCommentsLoading, Converter={StaticResource BoolToVisibilityConverter}}">
+                                    <controls:HnLogo Width="40" Height="40" IsAnimating="{Binding IsCommentsLoading}" />
+                                    <TextBlock Text="Loading comments..." FontSize="14" Foreground="{DynamicResource HnTextSecondaryBrush}" HorizontalAlignment="Center" />
+                                </StackPanel>
+                            </Panel>
+                        </StackPanel>
+                    </Border>
+                </StackPanel>
+            </ScrollViewer>
+        </Grid>
+    </Grid>
+</UserControl>

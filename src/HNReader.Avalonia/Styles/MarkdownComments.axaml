@@ -1,0 +1,25 @@
+<Styles xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:ctxt="using:ColorTextBlock.Avalonia">
+
+    <!-- Loaded after Markdown.Avalonia's theme (see App.OnFrameworkInitializationCompleted),
+         so these win on equal specificity. They tune the library defaults for a comment
+         column, which is much narrower than the document view the defaults were drawn for. -->
+
+    <!-- The default 40px list indent costs a full column in a nested thread. -->
+    <Style Selector=".Markdown_Avalonia_MarkdownViewer Grid.List">
+        <Setter Property="Margin" Value="12,0,0,0" />
+    </Style>
+
+    <!-- Gap between the bullet and its text; the default leaves the glyph touching it. -->
+    <Style Selector=".Markdown_Avalonia_MarkdownViewer ctxt|CTextBlock.ListMarker">
+        <Setter Property="Margin" Value="0,5,8,5" />
+    </Style>
+
+    <!-- Wrap long lines in code blocks. MarkdownBlock has no scroller of its own, so an
+         unwrapped line is simply cut off at the card edge. -->
+    <Style Selector=".Markdown_Avalonia_MarkdownViewer TextBlock.CodeBlock">
+        <Setter Property="TextWrapping" Value="Wrap" />
+    </Style>
+
+</Styles>

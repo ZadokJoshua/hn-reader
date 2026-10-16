@@ -1,4 +1,5 @@
 using HNReader.Core.Models;
+using HNReader.Core.Services.Logging;
 using HtmlAgilityPack;
 using System.Diagnostics;
 
@@ -10,8 +11,60 @@ namespace HNReader.Core.Services;
 /// fetches all comments in a single HTTP request instead of making individual API
 /// calls for each comment.
 /// </summary>
-public class HNWebClient(HttpClient httpClient)
+public class HNWebClient
 {
+    private readonly HttpClient _httpClient;
+    private readonly ILogger? _logger;
+    private readonly HNWebRequestCoordinator _requestCoordinator;
+
+    public HNWebClient(
+        HttpClient httpClient,
+        ILogger? logger = null,
+        HNWebRequestCoordinator? requestCoordinator = null)
+    {
+        _httpClient = httpClient;
+        _logger = logger;
+        _requestCoordinator = requestCoordinator ?? new HNWebRequestCoordinator();
+    }
+
+    /// <summary>
+    /// Fetches the comment count directly from the HTML page, which is authoritative
+    /// even when the HN Firebase API returns 0 (common for Ask HN posts).
+    /// </summary>
+    /// <param name="storyId">The HN story ID</param>
+    /// <param name="cancellationToken">Cancellation token</param>
+    /// <returns>Number of <c>&lt;tr class="comtr"&gt;</c> rows in the page, or 0 if the request failed.</returns>
+    public async Task<int> GetAccurateCommentCountAsync(int storyId, CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            var html = await _requestCoordinator
+                .GetItemHtmlAsync(_httpClient, storyId, cancellationToken)
+                .ConfigureAwait(false);
+            cancellationToken.ThrowIfCancellationRequested();
+
+            // Count <tr class="comtr"> rows. This is the source of truth — the
+            // HTML page always reflects the current state of comments.
+            var doc = new HtmlDocument();
+            doc.LoadHtml(html);
+            var nodes = doc.DocumentNode.SelectNodes("//tr[contains(@class,'comtr')]");
+            var count = nodes?.Count ?? 0;
+            _logger?.LogDebug("HNWeb", "comment count fetched",
+                context: ContextOf(("storyId", storyId), ("count", count)));
+            return count;
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            _logger?.LogWarning("HNWeb", "comment count fetch failed", ex,
+                context: ContextOf(("storyId", storyId)));
+            return 0;
+        }
+    }
+
     /// <summary>
     /// Fetches all comments for a story by parsing the HTML page directly.
     /// This is much faster than the API approach as it requires only one HTTP request.
@@ -20,12 +73,27 @@ public class HNWebClient(HttpClient httpClient)
     /// <returns>A list of comments with their depth information preserved</returns>
     public async Task<List<WebComment>> GetCommentsFromWebAsync(int storyId, CancellationToken cancellationToken = default)
     {
+        var (comments, _) = await FetchCommentsPageAsync(storyId, cancellationToken).ConfigureAwait(false);
+        return comments;
+    }
+
+    /// <summary>
+    /// Fetches the comments page once and returns both the parsed comment list and
+    /// the authoritative <c>tr.comtr</c> row count from that same document — the
+    /// combined call callers should prefer over calling <see cref="GetCommentsFromWebAsync"/>
+    /// and <see cref="GetAccurateCommentCountAsync"/> separately, which would download
+    /// and parse the identical page twice.
+    /// </summary>
+    public async Task<(List<WebComment> Comments, int AccurateCount)> FetchCommentsPageAsync(int storyId, CancellationToken cancellationToken = default)
+    {
+        var sw = Stopwatch.StartNew();
         var comments = new List<WebComment>();
 
         try
         {
-            var html = await httpClient.GetStringAsync($"item?id={storyId}", cancellationToken);
-
+            var html = await _requestCoordinator
+                .GetItemHtmlAsync(_httpClient, storyId, cancellationToken)
+                .ConfigureAwait(false);
             cancellationToken.ThrowIfCancellationRequested();
 
             var doc = new HtmlDocument();
@@ -33,7 +101,8 @@ public class HNWebClient(HttpClient httpClient)
 
             // Get all comment rows using XPath selectors
             var commentNodes = doc.DocumentNode.SelectNodes("//tr[contains(@class,'comtr')]");
-            if (commentNodes == null || commentNodes.Count == 0) return comments;
+            var accurateCount = commentNodes?.Count ?? 0;
+            if (commentNodes == null || commentNodes.Count == 0) return (comments, accurateCount);
 
             foreach (var commentNode in commentNodes)
             {
@@ -41,20 +110,22 @@ public class HNWebClient(HttpClient httpClient)
                 var comment = ParseCommentFromNode(commentNode);
                 if (comment != null) comments.Add(comment);
             }
-        }
-        catch (OperationCanceledException)
-        {
-            throw;
+
+            sw.Stop();
+            _logger?.LogInformation("HNWeb", "comments parsed",
+                context: ContextOf(("storyId", storyId), ("count", comments.Count), ("durationMs", sw.ElapsedMilliseconds)));
+            return (comments, accurateCount);
         }
         catch (Exception ex)
         {
-            Debug.WriteLine($"Error fetching comments from web: {ex.Message}");
+            sw.Stop();
+            _logger?.LogError("HNWeb", "comments fetch failed", ex,
+                context: ContextOf(("storyId", storyId), ("durationMs", sw.ElapsedMilliseconds)));
+            throw;
         }
-
-        return comments;
     }
 
-    private static WebComment? ParseCommentFromNode(HtmlNode commentNode)
+    private WebComment? ParseCommentFromNode(HtmlNode commentNode)
     {
         try
         {
@@ -88,11 +159,13 @@ public class HNWebClient(HttpClient httpClient)
             var text = CleanCommentTextOptimized(commentTextNode);
 
             // Check if comment is deleted or dead
-            if (string.IsNullOrWhiteSpace(text) || 
-                commentNode.OuterHtml.Contains("[deleted]") || 
-                commentNode.OuterHtml.Contains("[flagged]") ||
-                commentNode.OuterHtml.Contains("class=\"cdd\"") || 
-                commentNode.OuterHtml.Contains("[dead]"))
+            // Cache OuterHtml to avoid multiple string rebuilds
+            var outerHtml = commentNode.OuterHtml;
+            if (string.IsNullOrWhiteSpace(text) ||
+                outerHtml.Contains("[deleted]") ||
+                outerHtml.Contains("[flagged]") ||
+                outerHtml.Contains("class=\"cdd\"") ||
+                outerHtml.Contains("[dead]"))
             {
                 return null;
             }
@@ -109,7 +182,7 @@ public class HNWebClient(HttpClient httpClient)
         }
         catch (Exception ex)
         {
-            Debug.WriteLine($"Error parsing comment: {ex.Message}");
+            _logger?.LogWarning("HNWeb", "comment parse failed", ex);
             return null;
         }
     }
@@ -137,15 +210,26 @@ public class HNWebClient(HttpClient httpClient)
         // HN timestamp format: "2026-01-27T19:04:50 1769540690" (ISO date + Unix timestamp)
         // We'll use the Unix timestamp for accuracy
         var parts = timestampStr.Split(' ', StringSplitOptions.RemoveEmptyEntries);
-        
+
         // Try to parse the Unix timestamp (second part)
         if (parts.Length >= 2 && long.TryParse(parts[1], out var unixTimestamp))
             return unixTimestamp;
 
-        // Fallback: try to parse the ISO date (first part)
+        // Fallback: try to parse the ISO date (first part). DateTime.TryParse can
+        // return a DateTime whose Kind doesn't match TimeSpan.Zero (e.g. Local),
+        // which makes the DateTimeOffset constructor throw — force Utc so the
+        // offset is always valid regardless of the parsed Kind.
         if (parts.Length >= 1 && DateTime.TryParse(parts[0], out var dateTime))
-            return new DateTimeOffset(dateTime, TimeSpan.Zero).ToUnixTimeSeconds();
+            return new DateTimeOffset(DateTime.SpecifyKind(dateTime, DateTimeKind.Utc), TimeSpan.Zero).ToUnixTimeSeconds();
 
         return 0;
+    }
+
+    private static IReadOnlyList<KeyValuePair<string, object?>> ContextOf(
+        params (string Key, object? Value)[] pairs)
+    {
+        var list = new List<KeyValuePair<string, object?>>(pairs.Length);
+        foreach (var (k, v) in pairs) list.Add(new KeyValuePair<string, object?>(k, v));
+        return list;
     }
 }

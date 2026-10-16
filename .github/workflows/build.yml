@@ -1,0 +1,53 @@
+name: build
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  build:
+    # ubuntu, not windows: no project targets a Windows-specific framework any
+    # more. HNReader.Avalonia is a WinExe, but that is an output type, not a
+    # platform, and it builds fine here.
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      # The app and Core target net8.0; Core.Tests targets net10.0.
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: |
+            8.0.x
+            10.0.x
+
+      - name: Cache NuGet packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.nuget/packages
+          key: nuget-${{ runner.os }}-${{ hashFiles('**/*.csproj') }}
+          restore-keys: nuget-${{ runner.os }}-
+
+      - name: Restore
+        run: dotnet restore HNReaderApp.sln
+
+      - name: Build
+        run: dotnet build HNReaderApp.sln --configuration Release --no-restore
+
+      - name: Test
+        run: >
+          dotnet test tests/HNReader.Core.Tests/HNReader.Core.Tests.csproj
+          --configuration Release --no-build
+          --logger "trx;LogFileName=test-results.trx"
+
+      # Uploaded even on failure - a red run is only useful if you can see which
+      # test failed without reproducing it locally.
+      - name: Upload test results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: test-results
+          path: "**/*test-results.trx"
+          if-no-files-found: warn

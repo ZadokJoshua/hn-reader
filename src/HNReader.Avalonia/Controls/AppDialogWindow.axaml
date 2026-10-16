@@ -1,0 +1,31 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        x:Class="HNReader.Avalonia.Controls.AppDialogWindow"
+        WindowStartupLocation="CenterOwner"
+        SizeToContent="WidthAndHeight"
+        MinWidth="380"
+        MaxWidth="560"
+        CanResize="False"
+        ShowInTaskbar="False"
+        Background="{DynamicResource HnPageBackgroundBrush}">
+
+    <Grid RowDefinitions="Auto,*,Auto" Margin="24" >
+        <TextBlock x:Name="PART_Title"
+                   Grid.Row="0"
+                   Classes="SubtitleTextBlockStyle"
+                   TextWrapping="Wrap"
+                   Margin="0,0,0,12" />
+
+        <ContentPresenter x:Name="PART_Content" Grid.Row="1" />
+
+        <StackPanel Grid.Row="2"
+                    Orientation="Horizontal"
+                    HorizontalAlignment="Right"
+                    Spacing="8"
+                    Margin="0,20,0,0">
+            <Button x:Name="PART_Primary" Classes="accent" MinWidth="90" />
+            <Button x:Name="PART_Secondary" MinWidth="90" />
+            <Button x:Name="PART_Close" MinWidth="90" IsDefault="True" />
+        </StackPanel>
+    </Grid>
+</Window>
