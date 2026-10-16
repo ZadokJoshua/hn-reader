@@ -5,7 +5,7 @@
 ![.NET](https://img.shields.io/badge/.NET-8.0-512BD4)
 ![Avalonia](https://img.shields.io/badge/Avalonia-11-blue)
 
-A modern, fast Hacker News reader for Windows. No telemetry - just a clean Avalonia client for the stories you care about.
+A modern, fast Hacker News reader for Windows.
 
 
 ## Features
