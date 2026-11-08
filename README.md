@@ -44,15 +44,6 @@ dotnet test
 dotnet publish src/HNReader.Avalonia -c Release -r win-x64 -o publish
 ```
 
-## Releasing
-
-Push a version tag and GitHub Actions builds, tests and publishes the release:
-
-```powershell
-git tag v1.0.0
-git push origin v1.0.0
-```
-
 ## License
 
 [MIT](LICENSE). Bundled third-party components are listed in [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md).
