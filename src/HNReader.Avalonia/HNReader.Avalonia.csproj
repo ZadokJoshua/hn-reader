@@ -1,4 +1,4 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk">
 
   <ItemGroup>
     <ProjectReference Include="..\HNReader.Core\HNReader.Core.csproj" />
@@ -26,5 +26,40 @@
     <Nullable>enable</Nullable>
     <ApplicationIcon>Assets\HnReaderIcon.ico</ApplicationIcon>
   </PropertyGroup>
+
+  <!-- Release metadata, shown in the exe's file properties. The release workflow
+       overrides Version from the git tag (v1.2.3 -> 1.2.3). -->
+  <PropertyGroup>
+    <Version>1.0.0</Version>
+    <Product>HN Reader</Product>
+    <Authors>Zadok Joshua</Authors>
+    <Company>Zadok Joshua</Company>
+    <Description>A fast, modern Hacker News reader.</Description>
+    <Copyright>Copyright (c) 2026 Zadok Joshua</Copyright>
+  </PropertyGroup>
+
+  <!-- Only applies when publishing for a runtime (dotnet publish -r win-x64), so normal
+       builds and dotnet run are unchanged. Self-contained single file: the download runs
+       without installing .NET. ReadyToRun precompiles the code, which shortens the cold
+       start before the window appears. No trimming: bindings resolve by reflection
+       (AvaloniaUseCompiledBindingsByDefault is false), which trimming would break. -->
+  <PropertyGroup Condition="'$(RuntimeIdentifier)' != ''">
+    <SelfContained>true</SelfContained>
+    <PublishSingleFile>true</PublishSingleFile>
+    <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
+    <PublishReadyToRun>true</PublishReadyToRun>
+    <DebugType>None</DebugType>
+  </PropertyGroup>
+
+  <!-- Fizzler (LGPL-3.0, pulled in by Markdown.Avalonia's SVG plugin) is kept out of the
+       single-file bundle and shipped as Fizzler.dll next to the exe. LGPL requires that a
+       user can replace the library with their own build; a separate file allows that. -->
+  <Target Name="KeepLgplLibrariesOutOfBundle" AfterTargets="ComputeResolvedFilesToPublishList">
+    <ItemGroup>
+      <ResolvedFileToPublish Condition="'%(ResolvedFileToPublish.Filename)' == 'Fizzler'">
+        <ExcludeFromSingleFile>true</ExcludeFromSingleFile>
+      </ResolvedFileToPublish>
+    </ItemGroup>
+  </Target>
 
 </Project>
