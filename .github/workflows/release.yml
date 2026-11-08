@@ -1,0 +1,109 @@
+name: release
+
+# Pushing a version tag (git tag v1.2.3 && git push origin v1.2.3) builds the Windows
+# download and publishes it as a GitHub Release. Running it by hand from the Actions tab,
+# or a pull request that changes the release setup, does a dry run: same build, uploaded
+# as a workflow artifact, no release created.
+on:
+  push:
+    tags: ["v*"]
+  pull_request:
+    paths:
+      - .github/workflows/release.yml
+      - src/HNReader.Avalonia/HNReader.Avalonia.csproj
+  workflow_dispatch:
+
+permissions:
+  contents: write # create the release and upload its files; nothing else
+
+jobs:
+  windows:
+    # windows, not ubuntu like build.yml: ReadyToRun compiles for the target OS, and the
+    # exe is checked on the platform it ships for.
+    runs-on: windows-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      # The app targets net8.0; Core.Tests targets net10.0.
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: |
+            8.0.x
+            10.0.x
+
+      - name: Work out version
+        id: version
+        shell: pwsh
+        run: |
+          # v1.2.3 -> 1.2.3. A manual run has no tag, so it is labelled as a dev build.
+          if ($env:GITHUB_REF_TYPE -eq 'tag') {
+            $tag = $env:GITHUB_REF_NAME
+            $version = $tag.TrimStart('v')
+          } else {
+            $version = '0.0.0-dev'
+            $tag = "dev-$($env:GITHUB_SHA.Substring(0,7))"
+          }
+          "version=$version" >> $env:GITHUB_OUTPUT
+          "tag=$tag" >> $env:GITHUB_OUTPUT
+
+      # A release that fails its own tests is not published.
+      - name: Test
+        run: dotnet test tests/HNReader.Core.Tests/HNReader.Core.Tests.csproj --configuration Release
+
+      # Self-contained single file + ReadyToRun come from the csproj (they apply whenever
+      # a runtime is given), so this is the same command anyone can run to rebuild a tag.
+      - name: Publish
+        run: >
+          dotnet publish src/HNReader.Avalonia/HNReader.Avalonia.csproj
+          --configuration Release
+          --runtime win-x64
+          -p:Version=${{ steps.version.outputs.version }}
+          --output publish
+
+      - name: Package
+        id: package
+        shell: pwsh
+        run: |
+          $name = "HNReader-${{ steps.version.outputs.tag }}-win-x64"
+          $stage = Join-Path $env:RUNNER_TEMP $name
+          New-Item -ItemType Directory -Path $stage | Out-Null
+
+          # The assembly keeps its project name (avares:// resource URIs depend on it);
+          # only the file users click is renamed.
+          Copy-Item publish/HNReader.Avalonia.exe (Join-Path $stage 'HNReader.exe')
+
+          # Fizzler is LGPL-3.0 and deliberately left outside the single-file bundle so it
+          # can be replaced (see the csproj). Fail loudly if that ever stops being true.
+          if (-not (Test-Path publish/Fizzler.dll)) { throw 'Fizzler.dll missing from publish output' }
+          Copy-Item publish/Fizzler.dll $stage
+
+          Copy-Item LICENSE, THIRD-PARTY-NOTICES.md, README.md $stage
+
+          $zip = "$name.zip"
+          Compress-Archive -Path "$stage/*" -DestinationPath $zip
+          $hash = (Get-FileHash $zip -Algorithm SHA256).Hash.ToLower()
+          "$hash  $zip" | Out-File -Encoding ascii "$zip.sha256"
+
+          "zip=$zip" >> $env:GITHUB_OUTPUT
+
+      - name: Upload artifact (dry run)
+        if: github.ref_type != 'tag'
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.package.outputs.zip }}
+          path: |
+            ${{ steps.package.outputs.zip }}
+            ${{ steps.package.outputs.zip }}.sha256
+
+      - name: Create GitHub release
+        if: github.ref_type == 'tag'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: >
+          gh release create "${{ github.ref_name }}"
+          "${{ steps.package.outputs.zip }}"
+          "${{ steps.package.outputs.zip }}.sha256"
+          --title "HN Reader ${{ github.ref_name }}"
+          --notes-file .github/release-notes.md
+          --generate-notes
