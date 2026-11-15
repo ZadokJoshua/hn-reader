@@ -144,7 +144,10 @@ public class HNWebClient
             }
 
             // Parse author
-            var authorNode = commentNode.SelectSingleNode(".//a[contains(@class,'hnuser')]");
+            // HN used to mark the author link with class="hnuser"; since Nov 2026 it is a
+            // plain <a href="user?id=..."> inside span.comhead. Accept either.
+            var authorNode = commentNode.SelectSingleNode(".//a[contains(@class,'hnuser')]")
+                ?? commentNode.SelectSingleNode(".//span[contains(@class,'comhead')]//a[starts-with(@href,'user?id=')]");
             if (authorNode == null) return null;
             var author = authorNode.InnerText?.Trim() ?? string.Empty;
             if (string.IsNullOrWhiteSpace(author)) return null;
@@ -207,20 +210,22 @@ public class HNWebClient
     {
         if (string.IsNullOrEmpty(timestampStr)) return 0;
 
-        // HN timestamp format: "2026-01-27T19:04:50 1769540690" (ISO date + Unix timestamp)
-        // We'll use the Unix timestamp for accuracy
+        // HN timestamp format: "2026-01-27T19:04:50 1769540690" (ISO date + Unix timestamp),
+        // or just the ISO date (UTC) on newer pages. Prefer the Unix timestamp when present.
         var parts = timestampStr.Split(' ', StringSplitOptions.RemoveEmptyEntries);
 
         // Try to parse the Unix timestamp (second part)
         if (parts.Length >= 2 && long.TryParse(parts[1], out var unixTimestamp))
             return unixTimestamp;
 
-        // Fallback: try to parse the ISO date (first part). DateTime.TryParse can
-        // return a DateTime whose Kind doesn't match TimeSpan.Zero (e.g. Local),
-        // which makes the DateTimeOffset constructor throw — force Utc so the
-        // offset is always valid regardless of the parsed Kind.
-        if (parts.Length >= 1 && DateTime.TryParse(parts[0], out var dateTime))
-            return new DateTimeOffset(DateTime.SpecifyKind(dateTime, DateTimeKind.Utc), TimeSpan.Zero).ToUnixTimeSeconds();
+        // Fallback: the ISO date (first part), which HN writes in UTC. Parse it with the
+        // invariant culture so the user's regional settings can't change the result.
+        if (parts.Length >= 1 && DateTimeOffset.TryParse(
+                parts[0],
+                System.Globalization.CultureInfo.InvariantCulture,
+                System.Globalization.DateTimeStyles.AssumeUniversal,
+                out var dateTime))
+            return dateTime.ToUnixTimeSeconds();
 
         return 0;
     }
