@@ -122,6 +122,51 @@ public class HNWebClientAccurateCountTests
     }
 
     [Fact]
+    public async Task FetchCommentsPageAsync_ParsesCurrentHnMarkupWithoutHnuserClass()
+    {
+        // Trimmed from news.ycombinator.com/item?id=50465352 (Nov 2026): the author link
+        // has no class, and the age title carries only the ISO date.
+        const string html = """
+            <html><body><table border="0" class="comment-tree">
+            <tr class="athing comtr" id="50465825"><td><table border="0"><tr>
+              <td class="ind" indent="0"><img src="s.gif" height="1" width="0"></td>
+              <td valign="top" class="votelinks"><center><a id='up_50465825' href='vote?id=50465825&amp;how=up'><div class='votearrow' title='upvote'></div></a></center></td>
+              <td class="default"><div style="margin-top:2px; margin-bottom:-10px;"><span class="comhead">
+                <a href="user?id=turbobutton">turbobutton</a>
+                <span class="age" title="2026-11-12T11:46:29"><a href="item?id=50465825">2 days ago</a></span>
+                <span class="navs"> | <a href="#50471641" class="clicky">next</a> <a class="togg clicky" id="50465825" n="68" href="javascript:void(0)">[-]</a></span>
+              </span></div><br>
+              <div class="comment"><div class="commtext c00">I believe there&#x27;s a hard distinction.</div>
+              <div class="reply"><p><font size="1"><u><a href="reply?id=50465825" rel="nofollow">reply</a></u></font></div></div></td>
+            </tr></table></td></tr>
+            <tr class="athing comtr" id="50466344"><td><table border="0"><tr>
+              <td class="ind" indent="1"><img src="s.gif" height="1" width="40"></td>
+              <td class="default"><div><span class="comhead">
+                <a href="user?id=someone">someone</a>
+                <span class="age" title="2026-11-12T12:00:00"><a href="item?id=50466344">2 days ago</a></span>
+              </span></div><br>
+              <div class="comment"><div class="commtext c00">A reply.</div></div></td>
+            </tr></table></td></tr>
+            </table></body></html>
+            """;
+
+        var client = new HNWebClient(new HttpClient(new RecordingResponseHandler(html))
+        {
+            BaseAddress = new Uri("https://news.ycombinator.com/")
+        });
+
+        var (comments, accurateCount) = await client.FetchCommentsPageAsync(50465352);
+
+        Assert.Equal(2, accurateCount);
+        Assert.Equal(new[] { "turbobutton", "someone" }, comments.Select(c => c.By));
+        Assert.Equal(new[] { 0, 1 }, comments.Select(c => c.Depth));
+        Assert.Contains("hard distinction", comments[0].Text);
+        Assert.Equal(
+            new DateTimeOffset(2026, 11, 12, 11, 46, 29, TimeSpan.Zero).ToUnixTimeSeconds(),
+            comments[0].Time);
+    }
+
+    [Fact]
     public async Task ConcurrentRequestsForSameStoryAcrossClients_ShareOneHtmlFetch()
     {
         const string html = "<html><body>No comments.</body></html>";
